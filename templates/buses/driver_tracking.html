@@ -1,0 +1,2473 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- Leaflet CSS -->
+
+<link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+
+<style>
+
+    .tracking-wrapper {
+        padding: 50px 0;
+        background: #f8f9fa;
+        min-height: calc(100vh - 80px);
+    }
+
+    .tracking-card {
+        border: none;
+        border-radius: 18px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+
+    .tracking-header {
+        padding: 30px;
+        background: #212529;
+        color: #fff;
+    }
+
+    .tracking-header h2 {
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+
+    .tracking-header p {
+        margin-bottom: 0;
+        opacity: 0.75;
+    }
+
+    .tracking-body {
+        padding: 30px;
+    }
+
+    .status-box {
+        border-radius: 12px;
+        padding: 18px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        margin-top: 20px;
+    }
+
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+        background: #6c757d;
+    }
+
+    .status-indicator.active {
+        background: #198754;
+        box-shadow: 0 0 0 5px rgba(25, 135, 84, 0.12);
+    }
+
+    .gps-info {
+        margin-top: 20px;
+    }
+
+    .gps-item {
+        padding: 15px;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        margin-bottom: 10px;
+    }
+
+    .gps-item small {
+        color: #6c757d;
+        display: block;
+        margin-bottom: 3px;
+    }
+
+    .gps-item strong {
+        font-size: 1rem;
+    }
+
+    .tracking-button {
+        min-width: 180px;
+        padding: 12px 20px;
+        border-radius: 10px;
+        font-weight: 500;
+    }
+
+    .message-box {
+        margin-top: 20px;
+        display: none;
+    }
+
+
+    /* --------------------------------------------------
+       LIVE MAP
+    -------------------------------------------------- */
+
+    .map-section {
+        margin-top: 30px;
+    }
+
+    .map-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .map-header h5 {
+        margin-bottom: 0;
+        font-weight: 600;
+    }
+
+    #driverMap {
+        width: 100%;
+        height: 450px;
+        border-radius: 14px;
+        border: 1px solid #dee2e6;
+        overflow: hidden;
+    }
+
+    .map-placeholder {
+        height: 450px;
+        border-radius: 14px;
+        background: #f8f9fa;
+        border: 1px dashed #ced4da;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+
+        color: #6c757d;
+    }
+
+    .map-placeholder i {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 12px;
+    }
+
+
+    @media (max-width: 767.98px) {
+
+        .tracking-wrapper {
+            padding: 25px 0;
+        }
+
+        .tracking-header,
+        .tracking-body {
+            padding: 22px;
+        }
+
+        .tracking-button {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        #driverMap,
+        .map-placeholder {
+            height: 350px;
+        }
+
+    }
+
+</style>
+
+<div class="tracking-wrapper">
+
+<div class="container">
+
+    <div class="row justify-content-center">
+
+        <div class="col-lg-9 col-xl-8">
+
+            <div class="card tracking-card">
+
+                <!-- HEADER -->
+
+                <div class="tracking-header">
+
+                    <h2>
+                        <i class="bi bi-geo-alt-fill me-2"></i>
+                        Driver GPS Tracking
+                    </h2>
+
+                    <p>
+                        Share your current bus location
+                        with passengers in real time.
+                    </p>
+
+                </div>
+
+
+                <!-- BODY -->
+
+                <div class="tracking-body">
+
+                    <!-- BUS SELECTION -->
+
+                    <div class="mb-4">
+
+                        <label
+                            for="busSelect"
+                            class="form-label fw-semibold"
+                        >
+                            Select Bus
+                        </label>
+
+                        <select
+                            id="busSelect"
+                            class="form-select form-select-lg"
+                        >
+
+                            <option value="">
+                                -- Select a bus --
+                            </option>
+
+                            {% for bus in buses %}
+
+                                <option
+                                    value="{{ bus.id }}"
+                                    data-current-route-id="{{ bus.current_route_id|default:'' }}"
+                                >
+                                    {{ bus.bus_number }}
+                                    -
+                                    {{ bus.bus_name }}
+                                </option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="routeSelect" class="form-label">
+                            <i class="bi bi-signpost-2 me-1"></i>
+                            Select Route
+                        </label>
+
+                        <select
+                            id="routeSelect"
+                            class="form-select"
+                            disabled
+                        >
+                            <option value="">
+                                Select a bus first
+                            </option>
+                        </select>
+
+                        <div class="form-text">
+                            Select the route this bus is currently operating.
+                        </div>
+                    </div>
+
+                    <!-- TRACKING MODE -->
+
+                    <div class="mb-4">
+
+                        <label class="form-label fw-semibold">
+                            <i class="bi bi-broadcast me-1"></i>
+                            Tracking Mode
+                        </label>
+
+                        <div class="form-check form-switch">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="simulationMode"
+                            >
+
+                            <label
+                                class="form-check-label"
+                                for="simulationMode"
+                            >
+                                Simulate Bus Movement
+                            </label>
+                        </div>
+
+                        <div class="form-text">
+                            Enable this option to test live bus movement
+                            without using the device GPS.
+                        </div>
+
+                    </div>
+
+
+                    <!-- BUTTONS -->
+
+                    <div class="d-flex flex-wrap gap-2">
+
+                        <button
+                            type="button"
+                            id="startTracking"
+                            class="btn btn-success tracking-button"
+                        >
+                            <i class="bi bi-play-fill me-1"></i>
+                            Start Tracking
+                        </button>
+
+
+                        <button
+                            type="button"
+                            id="stopTracking"
+                            class="btn btn-outline-danger tracking-button"
+                            disabled
+                        >
+                            <i class="bi bi-stop-fill me-1"></i>
+                            Stop Tracking
+                        </button>
+
+                    </div>
+
+                    <!-- SIMULATION INFORMATION -->
+
+                    <div
+                        id="simulationInfo"
+                        class="alert alert-info mt-3"
+                        style="display: none;"
+                    >
+                        <div class="d-flex align-items-start">
+
+                            <i class="bi bi-play-circle-fill me-2 mt-1"></i>
+
+                            <div>
+
+                                <strong>
+                                    Simulation Mode
+                                </strong>
+
+                                <div class="small mt-1">
+                                    The bus will move automatically between
+                                    the selected route's stops.
+                                </div>
+
+                                <div
+                                    id="simulationProgress"
+                                    class="small mt-2"
+                                >
+                                    Waiting to start...
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- STATUS -->
+
+                    <div class="status-box">
+
+                        <div class="d-flex align-items-center">
+
+                            <span
+                                id="statusIndicator"
+                                class="status-indicator"
+                            ></span>
+
+                            <strong id="trackingStatus">
+                                Tracking is not active
+                            </strong>
+
+                        </div>
+
+                        <small
+                            id="statusMessage"
+                            class="text-muted d-block mt-2"
+                        >
+                            Select a bus and click
+                            "Start Tracking".
+                        </small>
+
+                    </div>
+
+
+                    <!-- MESSAGE -->
+
+                    <div
+                        id="messageBox"
+                        class="alert message-box"
+                    ></div>
+
+
+                    <!-- LIVE MAP -->
+
+                    <div class="map-section">
+
+                        <div class="map-header">
+
+                            <h5>
+                                <i class="bi bi-map me-2"></i>
+                                Current Bus Location
+                            </h5>
+
+                            <span
+                                id="mapStatus"
+                                class="badge bg-secondary"
+                            >
+                                Waiting for GPS
+                            </span>
+
+                        </div>
+
+
+                        <!-- Placeholder before GPS starts -->
+
+                        <div
+                            id="mapPlaceholder"
+                            class="map-placeholder"
+                        >
+
+                            <div>
+
+                                <i class="bi bi-geo-alt"></i>
+
+                                <strong>
+                                    Waiting for GPS location
+                                </strong>
+
+                                <p class="mb-0 mt-1">
+                                    Start tracking to display
+                                    the bus on the map.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- Actual map -->
+
+                        <div
+                            id="driverMap"
+                            style="display: none;"
+                        ></div>
+
+                    </div>
+
+
+                    <!-- GPS INFORMATION -->
+
+                    <div class="gps-info">
+
+                        <h5 class="mb-3">
+                            Current GPS Information
+                        </h5>
+
+
+                        <div class="gps-item">
+
+                            <small>
+                                Latitude
+                            </small>
+
+                            <strong id="latitude">
+                                —
+                            </strong>
+
+                        </div>
+
+
+                        <div class="gps-item">
+
+                            <small>
+                                Longitude
+                            </small>
+
+                            <strong id="longitude">
+                                —
+                            </strong>
+
+                        </div>
+
+
+                        <div class="gps-item">
+
+                            <small>
+                                Speed
+                            </small>
+
+                            <strong id="speed">
+                                —
+                            </strong>
+
+                        </div>
+
+
+                        <div class="gps-item">
+
+                            <small>
+                                GPS Accuracy
+                            </small>
+
+                            <strong id="accuracy">
+                                —
+                            </strong>
+
+                        </div>
+
+
+                        <div class="gps-item">
+
+                            <small>
+                                Last Update
+                            </small>
+
+                            <strong id="lastUpdate">
+                                —
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</div>
+
+<!-- Leaflet JavaScript -->
+
+<script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+</script>
+
+{{ route_data|json_script:"route-data" }}
+
+<script>
+    const routeData =
+        JSON.parse(
+            document.getElementById('route-data').textContent
+        );
+</script>
+
+<script>
+
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        const busSelect =
+            document.getElementById('busSelect');
+
+        const routeSelect =
+            document.getElementById('routeSelect');
+
+        const simulationMode =
+            document.getElementById('simulationMode');
+
+        const startButton =
+            document.getElementById('startTracking');
+
+        const stopButton =
+            document.getElementById('stopTracking');
+
+        const trackingStatus =
+            document.getElementById('trackingStatus');
+
+        const statusMessage =
+            document.getElementById('statusMessage');
+
+        const statusIndicator =
+            document.getElementById('statusIndicator');
+
+        const messageBox =
+            document.getElementById('messageBox');
+
+        const latitudeElement =
+            document.getElementById('latitude');
+
+        const longitudeElement =
+            document.getElementById('longitude');
+
+        const speedElement =
+            document.getElementById('speed');
+
+        const accuracyElement =
+            document.getElementById('accuracy');
+
+        const lastUpdateElement =
+            document.getElementById('lastUpdate');
+
+        const mapStatus =
+            document.getElementById('mapStatus');
+
+        const driverMap =
+            document.getElementById('driverMap');
+
+        const mapPlaceholder =
+            document.getElementById('mapPlaceholder');
+
+        const simulationInfo =
+            document.getElementById('simulationInfo');
+
+        const simulationProgress =
+            document.getElementById('simulationProgress');
+
+        let simulationTimer = null;
+
+        let simulationRoute = null;
+
+        let simulationStops = [];
+
+        let simulationStopIndex = 0;
+
+        let simulationSegmentProgress = 0;
+
+        const SIMULATION_INTERVAL = 1000;
+
+        const SIMULATION_SPEED_KMH = 30;
+
+        const SIMULATION_ACCURACY = 5;
+
+
+        let watchId = null;
+
+        let isTracking = false;
+
+        let map = null;
+
+        const roadSegments = {};
+
+        let busMarker = null;
+
+        let accuracyCircle = null;
+
+
+        // ----------------------------------------------------
+        // INITIALIZE MAP
+        // ----------------------------------------------------
+
+        function initializeMap(
+            latitude,
+            longitude
+        ) {
+
+            if (map !== null) {
+
+                return;
+
+            }
+
+
+            map = L.map(
+                'driverMap'
+            ).setView(
+                [
+                    latitude,
+                    longitude
+                ],
+                16
+            );
+
+
+            L.tileLayer(
+                'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_3of5_1_e490849b823df0b4085d8968\n' +
+                '\n',
+                {
+                    maxZoom: 20,
+                    attribution:
+                        '&copy; OpenStreetMap contributors &copy; CARTO',
+                    subdomains: 'abcd'
+                }
+            ).addTo(map);
+
+            busMarker = L.marker(
+                [
+                    latitude,
+                    longitude
+                ]
+            ).addTo(map);
+
+
+            busMarker.bindPopup(
+                '<strong>Bus Location</strong>'
+            );
+
+
+            accuracyCircle = L.circle(
+                [
+                    latitude,
+                    longitude
+                ],
+                {
+                    radius: 0
+                }
+            ).addTo(map);
+
+
+            mapPlaceholder.style.display =
+                'none';
+
+            driverMap.style.display =
+                'block';
+
+
+            mapStatus.textContent =
+                'GPS Active';
+
+            mapStatus.className =
+                'badge bg-success';
+
+
+            // Leaflet needs to recalculate
+            // its size after becoming visible.
+
+            setTimeout(
+                function () {
+
+                    map.invalidateSize();
+
+                },
+                100
+            );
+
+        }
+
+
+        // ----------------------------------------------------
+        // UPDATE MAP
+        // ----------------------------------------------------
+
+        function updateMap(
+            latitude,
+            longitude,
+            accuracy
+        ) {
+
+            initializeMap(
+                latitude,
+                longitude
+            );
+
+
+            const newPosition = [
+                latitude,
+                longitude
+            ];
+
+
+            // Move bus marker
+
+            busMarker.setLatLng(
+                newPosition
+            );
+
+
+            // Update popup
+
+            busMarker.setPopupContent(
+                '<strong>Bus Location</strong><br>' +
+                'Lat: ' +
+                latitude.toFixed(6) +
+                '<br>' +
+                'Lng: ' +
+                longitude.toFixed(6)
+            );
+
+
+            // Update accuracy circle
+
+            accuracyCircle.setLatLng(
+                newPosition
+            );
+
+            accuracyCircle.setRadius(
+                accuracy
+            );
+
+
+            // Move map smoothly
+
+            map.panTo(
+                newPosition
+            );
+
+        }
+
+        function calculateDistanceKm(
+            latitude1,
+            longitude1,
+            latitude2,
+            longitude2
+        ) {
+            const earthRadiusKm = 6371;
+
+            const lat1 =
+                latitude1 * Math.PI / 180;
+
+            const lat2 =
+                latitude2 * Math.PI / 180;
+
+            const deltaLat =
+                (latitude2 - latitude1) *
+                Math.PI / 180;
+
+            const deltaLon =
+                (longitude2 - longitude1) *
+                Math.PI / 180;
+
+            const a =
+                Math.sin(deltaLat / 2) ** 2 +
+                Math.cos(lat1) *
+                Math.cos(lat2) *
+                Math.sin(deltaLon / 2) ** 2;
+
+            const c =
+                2 *
+                Math.atan2(
+                    Math.sqrt(a),
+                    Math.sqrt(1 - a)
+                );
+
+            return earthRadiusKm * c;
+        }
+
+        function calculateBearing(
+            latitude1,
+            longitude1,
+            latitude2,
+            longitude2
+        ) {
+            const lat1 =
+                latitude1 * Math.PI / 180;
+
+            const lat2 =
+                latitude2 * Math.PI / 180;
+
+            const deltaLon =
+                (longitude2 - longitude1) *
+                Math.PI / 180;
+
+            const y =
+                Math.sin(deltaLon) *
+                Math.cos(lat2);
+
+            const x =
+                Math.cos(lat1) *
+                Math.sin(lat2) -
+                Math.sin(lat1) *
+                Math.cos(lat2) *
+                Math.cos(deltaLon);
+
+            const bearing =
+                Math.atan2(y, x) *
+                180 /
+                Math.PI;
+
+            return (bearing + 360) % 360;
+        }
+
+        async function sendSimulatedLocation(
+            latitude,
+            longitude,
+            heading
+        ) {
+            const busId =
+                busSelect.value;
+
+            if (!busId) {
+                return false;
+            }
+
+            const formData =
+                new URLSearchParams();
+
+            formData.append(
+                'bus_id',
+                busId
+            );
+
+            formData.append(
+                'latitude',
+                latitude
+            );
+
+            formData.append(
+                'longitude',
+                longitude
+            );
+
+            formData.append(
+                'speed',
+                SIMULATION_SPEED_KMH
+            );
+
+            formData.append(
+                'heading',
+                heading
+            );
+
+            formData.append(
+                'accuracy',
+                SIMULATION_ACCURACY
+            );
+
+            try {
+
+                const response =
+                    await fetch(
+                        "{% url 'buses:update_bus_location' %}",
+                        {
+                            method: 'POST',
+
+                            headers: {
+                                'X-CSRFToken': csrftoken,
+                                'Content-Type':
+                                    'application/x-www-form-urlencoded',
+                            },
+
+                            body: formData
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                if (!data.success) {
+
+                    showMessage(
+                        data.message ||
+                        'Failed to update simulated location.',
+                        'danger'
+                    );
+
+                    return false;
+                }
+
+                return true;
+
+            } catch (error) {
+
+                console.error(
+                    'Simulation update error:',
+                    error
+                );
+
+                showMessage(
+                    'Could not send simulated location.',
+                    'danger'
+                );
+
+                return false;
+            }
+        }
+
+        async function simulateBusMovement() {
+
+            if (
+                !simulationRoute ||
+                simulationStops.length < 2
+            ) {
+                return;
+            }
+
+            if (
+                simulationStopIndex >=
+                simulationStops.length - 1
+            ) {
+
+                stopSimulation();
+
+                return;
+            }
+
+            const currentStop =
+                simulationStops[
+                    simulationStopIndex
+                ];
+
+            const nextStop =
+                simulationStops[
+                    simulationStopIndex + 1
+                ];
+
+            const segments =
+                roadSegments[
+                    simulationRoute.id
+                ] || [];
+
+            const currentSegment =
+                segments.find(
+                    segment =>
+                        segment.fromOrder ===
+                            currentStop.order &&
+                        segment.toOrder ===
+                            nextStop.order
+                );
+
+            let segmentDistance;
+
+            if (
+                currentSegment &&
+                currentSegment.geometry &&
+                currentSegment.geometry.length >= 2
+            ) {
+
+                segmentDistance =
+                    calculateGeometryDistanceKm(
+                        currentSegment.geometry
+                    );
+
+            } else {
+
+                segmentDistance =
+                    calculateDistanceKm(
+                        currentStop.latitude,
+                        currentStop.longitude,
+                        nextStop.latitude,
+                        nextStop.longitude
+                    );
+            }
+
+            if (segmentDistance <= 0) {
+
+                simulationStopIndex++;
+
+                simulationSegmentProgress = 0;
+
+                return;
+            }
+
+            /*
+             * Distance travelled during one
+             * simulation interval.
+             *
+             * speed = 30 km/h
+             * interval = 1 second
+             */
+            const distancePerStep =
+                SIMULATION_SPEED_KMH *
+                (SIMULATION_INTERVAL / 3600000);
+
+            const progressPerStep =
+                distancePerStep /
+                segmentDistance;
+
+            simulationSegmentProgress +=
+                progressPerStep;
+
+            if (
+                simulationSegmentProgress >= 1
+            ) {
+
+                simulationSegmentProgress = 0;
+
+                simulationStopIndex++;
+
+                if (
+                    simulationStopIndex >=
+                    simulationStops.length - 1
+                ) {
+
+                    const finalStop =
+                        simulationStops[
+                            simulationStops.length - 1
+                        ];
+
+                    await sendSimulatedLocation(
+                        finalStop.latitude,
+                        finalStop.longitude,
+                        0
+                    );
+
+                    updateSimulationUI(
+                        finalStop.name,
+                        'Destination reached'
+                    );
+
+                    updateGPSDisplay(
+                        finalStop.latitude,
+                        finalStop.longitude,
+                        SIMULATION_SPEED_KMH,
+                        SIMULATION_ACCURACY
+                    );
+
+                    stopSimulation();
+
+                    return;
+                }
+
+                return;
+            }
+            
+            let latitude;
+            let longitude;
+            let heading;
+
+            if (
+                currentSegment &&
+                currentSegment.geometry &&
+                currentSegment.geometry.length >= 2
+            ) {
+
+                const roadPosition =
+                    getPointAlongGeometry(
+                        currentSegment.geometry,
+                        simulationSegmentProgress
+                    );
+
+                latitude =
+                    roadPosition.latitude;
+
+                longitude =
+                    roadPosition.longitude;
+
+                heading =
+                    getHeadingAlongGeometry(
+                        currentSegment.geometry,
+                        simulationSegmentProgress
+                    );
+
+            } else {
+
+                /*
+                 * Fallback to straight-line movement
+                 * if OSRM geometry is unavailable.
+                 */
+
+                latitude =
+                    currentStop.latitude +
+                    (
+                        nextStop.latitude -
+                        currentStop.latitude
+                    ) *
+                    simulationSegmentProgress;
+
+                longitude =
+                    currentStop.longitude +
+                    (
+                        nextStop.longitude -
+                        currentStop.longitude
+                    ) *
+                    simulationSegmentProgress;
+
+                heading =
+                    calculateBearing(
+                        currentStop.latitude,
+                        currentStop.longitude,
+                        nextStop.latitude,
+                        nextStop.longitude
+                    );
+            }
+
+            await sendSimulatedLocation(
+                latitude,
+                longitude,
+                heading
+            );
+
+            updateGPSDisplay(
+                latitude,
+                longitude,
+                SIMULATION_SPEED_KMH,
+                SIMULATION_ACCURACY
+            );
+
+            updateMap(
+                latitude,
+                longitude,
+                SIMULATION_ACCURACY
+            );
+
+            updateSimulationUI(
+                currentStop.name,
+                nextStop.name
+            );
+        }
+
+        function updateGPSDisplay(
+            latitude,
+            longitude,
+            speed,
+            accuracy
+        ) {
+            latitudeElement.textContent =
+                latitude.toFixed(6);
+
+            longitudeElement.textContent =
+                longitude.toFixed(6);
+
+            speedElement.textContent =
+                speed !== null
+                    ? `${speed.toFixed(1)} km/h`
+                    : '—';
+
+            accuracyElement.textContent =
+                accuracy !== null
+                    ? `${accuracy.toFixed(1)} m`
+                    : '—';
+
+            lastUpdateElement.textContent =
+                new Date().toLocaleTimeString();
+        }
+
+        function updateSimulationUI(
+            currentStopName,
+            nextStopName
+        ) {
+            if (nextStopName) {
+
+                simulationProgress.textContent =
+                    `Moving from ${currentStopName} → ${nextStopName}`;
+
+            } else {
+
+                simulationProgress.textContent =
+                    currentStopName;
+            }
+        }
+
+        async function loadRouteRoadGeometry(route) {
+
+            if (
+                !route ||
+                !route.stops ||
+                route.stops.length < 2
+            ) {
+                return [];
+            }
+
+            const stops = [...route.stops].sort(
+                function (a, b) {
+                    return a.order - b.order;
+                }
+            );
+
+            const segments = [];
+
+            for (
+                let i = 0;
+                i < stops.length - 1;
+                i++
+            ) {
+
+                const fromStop = stops[i];
+                const toStop = stops[i + 1];
+
+                if (
+                    fromStop.latitude === null ||
+                    fromStop.longitude === null ||
+                    toStop.latitude === null ||
+                    toStop.longitude === null
+                ) {
+                    continue;
+                }
+
+                const coordinates =
+                    `${fromStop.longitude},${fromStop.latitude};` +
+                    `${toStop.longitude},${toStop.latitude}`;
+
+                const url =
+                    `https://router.project-osrm.org/route/v1/driving/` +
+                    `${coordinates}` +
+                    `?overview=full&geometries=geojson`;
+
+                try {
+
+                    const response =
+                        await fetch(url);
+
+                    if (!response.ok) {
+                        throw new Error(
+                            `OSRM request failed: ${response.status}`
+                        );
+                    }
+
+                    const data =
+                        await response.json();
+
+                    if (
+                        data.code !== 'Ok' ||
+                        !data.routes ||
+                        data.routes.length === 0
+                    ) {
+                        console.warn(
+                            `No road geometry for ` +
+                            `${fromStop.name} → ${toStop.name}`
+                        );
+
+                        continue;
+                    }
+
+                    const geometry =
+                        data.routes[0].geometry.coordinates.map(
+                            function (coordinate) {
+
+                                return {
+                                    latitude: coordinate[1],
+                                    longitude: coordinate[0]
+                                };
+
+                            }
+                        );
+
+                    segments.push({
+                        fromStop: fromStop.name,
+                        toStop: toStop.name,
+                        fromOrder: fromStop.order,
+                        toOrder: toStop.order,
+                        geometry: geometry
+                    });
+
+                } catch (error) {
+
+                    console.error(
+                        `Unable to load road geometry for ` +
+                        `${fromStop.name} → ${toStop.name}`,
+                        error
+                    );
+
+                }
+            }
+
+            return segments;
+        }
+
+        function calculateGeometryDistanceKm(geometry) {
+
+            let totalDistance = 0;
+
+            for (let i = 0; i < geometry.length - 1; i++) {
+
+                totalDistance += calculateDistanceKm(
+                    geometry[i].latitude,
+                    geometry[i].longitude,
+                    geometry[i + 1].latitude,
+                    geometry[i + 1].longitude
+                );
+
+            }
+
+            return totalDistance;
+        }
+
+        function getPointAlongGeometry(
+            geometry,
+            progress
+        ) {
+
+            if (!geometry || geometry.length === 0) {
+                return null;
+            }
+
+            if (geometry.length === 1) {
+                return geometry[0];
+            }
+
+            progress = Math.max(
+                0,
+                Math.min(1, progress)
+            );
+
+            const totalDistance =
+                calculateGeometryDistanceKm(
+                    geometry
+                );
+
+            if (totalDistance <= 0) {
+                return geometry[0];
+            }
+
+            const targetDistance =
+                totalDistance * progress;
+
+            let travelledDistance = 0;
+
+            for (
+                let i = 0;
+                i < geometry.length - 1;
+                i++
+            ) {
+
+                const pointA = geometry[i];
+
+                const pointB = geometry[i + 1];
+
+                const segmentDistance =
+                    calculateDistanceKm(
+                        pointA.latitude,
+                        pointA.longitude,
+                        pointB.latitude,
+                        pointB.longitude
+                    );
+
+                if (
+                    travelledDistance +
+                    segmentDistance >=
+                    targetDistance
+                ) {
+
+                    const remainingDistance =
+                        targetDistance -
+                        travelledDistance;
+
+                    const localProgress =
+                        segmentDistance > 0
+                            ? remainingDistance /
+                              segmentDistance
+                            : 0;
+
+                    return {
+                        latitude:
+                            pointA.latitude +
+                            (
+                                pointB.latitude -
+                                pointA.latitude
+                            ) *
+                            localProgress,
+
+                        longitude:
+                            pointA.longitude +
+                            (
+                                pointB.longitude -
+                                pointA.longitude
+                            ) *
+                            localProgress
+                    };
+                }
+
+                travelledDistance +=
+                    segmentDistance;
+            }
+
+            return geometry[
+                geometry.length - 1
+            ];
+        }
+
+        function getHeadingAlongGeometry(
+            geometry,
+            progress
+        ) {
+
+            if (!geometry || geometry.length < 2) {
+                return 0;
+            }
+
+            progress = Math.max(
+                0,
+                Math.min(1, progress)
+            );
+
+            const totalDistance =
+                calculateGeometryDistanceKm(
+                    geometry
+                );
+
+            if (totalDistance <= 0) {
+                return 0;
+            }
+
+            const targetDistance =
+                totalDistance * progress;
+
+            let travelledDistance = 0;
+
+            for (
+                let i = 0;
+                i < geometry.length - 1;
+                i++
+            ) {
+
+                const pointA = geometry[i];
+
+                const pointB = geometry[i + 1];
+
+                const segmentDistance =
+                    calculateDistanceKm(
+                        pointA.latitude,
+                        pointA.longitude,
+                        pointB.latitude,
+                        pointB.longitude
+                    );
+
+                if (
+                    travelledDistance +
+                    segmentDistance >=
+                    targetDistance
+                ) {
+
+                    return calculateBearing(
+                        pointA.latitude,
+                        pointA.longitude,
+                        pointB.latitude,
+                        pointB.longitude
+                    );
+                }
+
+                travelledDistance +=
+                    segmentDistance;
+            }
+
+            const last =
+                geometry.length - 1;
+
+            return calculateBearing(
+                geometry[last - 1].latitude,
+                geometry[last - 1].longitude,
+                geometry[last].latitude,
+                geometry[last].longitude
+            );
+        }
+
+        async function startSimulation() {
+
+            const busId =
+                busSelect.value;
+
+            const routeId =
+                routeSelect.value;
+
+            if (!busId) {
+
+                showMessage(
+                    'Please select a bus first.',
+                    'warning'
+                );
+
+                return;
+            }
+
+            if (!routeId) {
+
+                showMessage(
+                    'Please select a route first.',
+                    'warning'
+                );
+
+                return;
+            }
+
+            const busRoutes =
+                routeData[busId];
+
+            if (!busRoutes) {
+
+                showMessage(
+                    'No route data found for this bus.',
+                    'danger'
+                );
+
+                return;
+            }
+
+            simulationRoute =
+                busRoutes[routeId];
+
+            if (!simulationRoute) {
+
+                showMessage(
+                    'Selected route could not be loaded.',
+                    'danger'
+                );
+
+                return;
+            }
+
+            simulationStops =
+                simulationRoute.stops.filter(
+                    stop =>
+                        stop.latitude !== null &&
+                        stop.longitude !== null
+                );
+
+            if (simulationStops.length < 2) {
+
+                showMessage(
+                    'The selected route needs at least two stops with GPS coordinates.',
+                    'danger'
+                );
+
+                return;
+            }
+
+            const segments =
+                await loadRouteRoadGeometry(
+                    simulationRoute
+                );
+
+            roadSegments[simulationRoute.id] =
+                segments;
+
+            simulationStopIndex = 0;
+
+            simulationSegmentProgress = 0;
+
+            simulationInfo.style.display =
+                'block';
+
+            startButton.disabled = true;
+
+            stopButton.disabled = false;
+
+            busSelect.disabled = true;
+
+            routeSelect.disabled = true;
+
+            simulationMode.disabled = true;
+
+            trackingStatus.textContent =
+                'Simulation is active';
+
+            statusMessage.textContent =
+                'The bus is moving along the selected route.';
+
+            statusIndicator.classList.add(
+                'active'
+            );
+
+            mapStatus.textContent =
+                'Simulation Active';
+
+            mapStatus.className =
+                'badge bg-primary';
+
+            const firstStop =
+                simulationStops[0];
+
+            updateMap(
+                firstStop.latitude,
+                firstStop.longitude,
+                SIMULATION_ACCURACY
+            );
+
+            updateGPSDisplay(
+                firstStop.latitude,
+                firstStop.longitude,
+                SIMULATION_SPEED_KMH,
+                SIMULATION_ACCURACY
+            );
+
+            updateSimulationUI(
+                firstStop.name,
+                simulationStops[1].name
+            );
+
+            await sendSimulatedLocation(
+                firstStop.latitude,
+                firstStop.longitude,
+                calculateBearing(
+                    firstStop.latitude,
+                    firstStop.longitude,
+                    simulationStops[1].latitude,
+                    simulationStops[1].longitude
+                )
+            );
+
+            simulationTimer =
+                setInterval(
+                    simulateBusMovement,
+                    SIMULATION_INTERVAL
+                );
+        }
+
+        async function stopSimulation() {
+
+            if (simulationTimer !== null) {
+
+                clearInterval(
+                    simulationTimer
+                );
+
+                simulationTimer = null;
+            }
+
+            const busId =
+                busSelect.value;
+
+            if (busId) {
+
+                try {
+
+                    await fetch(
+                        "{% url 'buses:stop_bus_tracking' %}",
+                        {
+                            method: 'POST',
+
+                            headers: {
+                                'X-CSRFToken': csrftoken,
+                                'Content-Type':
+                                    'application/x-www-form-urlencoded',
+                            },
+
+                            body:
+                                `bus_id=${encodeURIComponent(busId)}`
+                        }
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        'Error stopping simulation:',
+                        error
+                    );
+                }
+            }
+
+            simulationRoute = null;
+
+            simulationStops = [];
+
+            simulationStopIndex = 0;
+
+            simulationSegmentProgress = 0;
+
+            simulationInfo.style.display =
+                'none';
+
+            startButton.disabled = false;
+
+            stopButton.disabled = true;
+
+            busSelect.disabled = false;
+
+            routeSelect.disabled = false;
+
+            simulationMode.disabled = false;
+
+            trackingStatus.textContent =
+                'Tracking is not active';
+
+            statusMessage.textContent =
+                'Select a bus and click "Start Tracking".';
+
+            statusIndicator.classList.remove(
+                'active'
+            );
+
+            mapStatus.textContent =
+                'Waiting for GPS';
+
+            mapStatus.className =
+                'badge bg-secondary';
+            }
+
+        simulationMode.addEventListener(
+            'change',
+            function () {
+
+                if (this.checked) {
+
+                    startButton.innerHTML =
+                        '<i class="bi bi-play-fill me-1"></i>' +
+                        'Start Simulation';
+
+                    statusMessage.textContent =
+                        'Select a bus and route, then click "Start Simulation".';
+
+                } else {
+
+                    startButton.innerHTML =
+                        '<i class="bi bi-play-fill me-1"></i>' +
+                        'Start Tracking';
+
+                    statusMessage.textContent =
+                        'Select a bus and click "Start Tracking".';
+                }
+            }
+        );
+
+
+        // ----------------------------------------------------
+        // CSRF TOKEN
+        // ----------------------------------------------------
+
+        function getCookie(name) {
+
+            let cookieValue = null;
+
+            if (
+                document.cookie &&
+                document.cookie !== ''
+            ) {
+
+                const cookies =
+                    document.cookie.split(';');
+
+                for (
+                    let cookie of cookies
+                    ) {
+
+                    cookie = cookie.trim();
+
+                    if (
+                        cookie.substring(
+                            0,
+                            name.length + 1
+                        ) ===
+                        (name + '=')
+                    ) {
+
+                        cookieValue =
+                            decodeURIComponent(
+                                cookie.substring(
+                                    name.length + 1
+                                )
+                            );
+
+                        break;
+
+                    }
+
+                }
+
+            }
+
+            return cookieValue;
+
+        }
+
+
+        const csrftoken =
+            getCookie('csrftoken');
+
+
+        // ----------------------------------------------------
+        // MESSAGE
+        // ----------------------------------------------------
+
+        function showMessage(
+            message,
+            type = 'info'
+        ) {
+
+            messageBox.className =
+                'alert alert-' +
+                type +
+                ' message-box';
+
+            messageBox.textContent =
+                message;
+
+            messageBox.style.display =
+                'block';
+
+        }
+
+        // ----------------------------------------------------
+        // BUS / ROUTE SELECTION
+        // ----------------------------------------------------
+
+        function updateRouteOptions() {
+
+            const selectedBusId =
+                busSelect.value;
+
+            console.log(
+                'Selected bus:',
+                selectedBusId
+            );
+
+            if (!selectedBusId) {
+
+                routeSelect.disabled = true;
+
+                routeSelect.innerHTML =
+                    '<option value="">Select a bus first</option>';
+
+                return;
+            }
+
+            const busRoutes =
+                routeData[selectedBusId];
+
+            console.log(
+                'Routes for selected bus:',
+                busRoutes
+            );
+
+            if (
+                !busRoutes ||
+                Object.keys(busRoutes).length === 0
+            ) {
+
+                routeSelect.disabled = true;
+
+                routeSelect.innerHTML =
+                    '<option value="">No routes available for this bus</option>';
+
+                return;
+            }
+
+            routeSelect.innerHTML =
+                '<option value="">-- Select route --</option>';
+
+            Object.entries(busRoutes).forEach(
+                function ([routeId, route]) {
+
+                    const option =
+                        document.createElement('option');
+
+                    option.value =
+                        routeId;
+
+                    option.textContent =
+                        route.routeName;
+
+                    routeSelect.appendChild(
+                        option
+                    );
+                }
+            );
+
+            routeSelect.disabled = false;
+
+            const selectedBusOption =
+                busSelect.options[
+                    busSelect.selectedIndex
+                ];
+
+            const currentRouteId =
+                selectedBusOption.dataset.currentRouteId;
+
+            if (
+                currentRouteId &&
+                busRoutes[currentRouteId]
+            ) {
+                routeSelect.value =
+                    currentRouteId;
+            }
+        }
+
+        busSelect.addEventListener(
+            'change',
+            updateRouteOptions
+        );
+
+        updateRouteOptions();
+
+        // ----------------------------------------------------
+        // SEND GPS LOCATION
+        // ----------------------------------------------------
+
+        function sendLocation(
+            position
+        ) {
+
+            if (!isTracking) {
+               return;
+            }
+
+            const busId =
+                busSelect.value;
+
+            if (!busId) {
+
+                return;
+
+            }
+
+
+            const latitude =
+                position.coords.latitude;
+
+            const longitude =
+                position.coords.longitude;
+
+            const accuracy =
+                position.coords.accuracy;
+
+            const speed =
+                position.coords.speed;
+
+            const heading =
+                position.coords.heading;
+
+
+            // -----------------------------------------------
+            // UPDATE GPS INFORMATION
+            // -----------------------------------------------
+
+            latitudeElement.textContent =
+                latitude.toFixed(6);
+
+            longitudeElement.textContent =
+                longitude.toFixed(6);
+
+
+            if (speed !== null) {
+
+                speedElement.textContent =
+                    (
+                        speed * 3.6
+                    ).toFixed(1) +
+                    ' km/h';
+
+            } else {
+
+                speedElement.textContent =
+                    'Unavailable';
+
+            }
+
+
+            accuracyElement.textContent =
+                accuracy.toFixed(1) +
+                ' metres';
+
+
+            lastUpdateElement.textContent =
+                new Date().toLocaleTimeString();
+
+
+            // -----------------------------------------------
+            // UPDATE MAP
+            // -----------------------------------------------
+
+            updateMap(
+                latitude,
+                longitude,
+                accuracy
+            );
+
+
+            // -----------------------------------------------
+            // SEND TO DJANGO
+            // -----------------------------------------------
+
+            const formData =
+                new FormData();
+
+
+            formData.append(
+                'bus_id',
+                busId
+            );
+
+
+            formData.append(
+                'latitude',
+                latitude
+            );
+
+
+            formData.append(
+                'longitude',
+                longitude
+            );
+
+
+            if (speed !== null) {
+
+                formData.append(
+                    'speed',
+                    speed * 3.6
+                );
+
+            }
+
+
+            if (heading !== null) {
+
+                formData.append(
+                    'heading',
+                    heading
+                );
+
+            }
+
+
+            formData.append(
+                'accuracy',
+                accuracy
+            );
+
+
+            fetch(
+                "{% url 'buses:update_bus_location' %}",
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'X-CSRFToken':
+                        csrftoken
+                    },
+
+                    body: formData
+                }
+            )
+                .then(
+                    response => {
+
+                        if (!response.ok) {
+
+                            throw new Error(
+                                'Server error'
+                            );
+
+                        }
+
+                        return response.json();
+
+                    }
+                )
+                .then(
+                    data => {
+
+                        if (data.success) {
+
+                            trackingStatus.textContent =
+                                'GPS tracking is active';
+
+                            statusMessage.textContent =
+                                'Your current location is being shared.';
+
+                        } else {
+
+                            showMessage(
+                                data.message ||
+                                'Unable to update location.',
+                                'danger'
+                            );
+
+                        }
+
+                    }
+                )
+                .catch(
+                    error => {
+
+                        console.error(error);
+
+                        showMessage(
+                            'Unable to send GPS location to the server.',
+                            'danger'
+                        );
+
+                    }
+                );
+
+        }
+
+
+        // ----------------------------------------------------
+        // GPS ERROR
+        // ----------------------------------------------------
+
+        function handleLocationError(
+            error
+        ) {
+
+            let message =
+                'Unable to obtain your location.';
+
+
+            if (error.code === 1) {
+
+                message =
+                    'Location permission was denied. Please allow location access in your browser.';
+
+            } else if (error.code === 2) {
+
+                message =
+                    'Your location is currently unavailable.';
+
+            } else if (error.code === 3) {
+
+                message =
+                    'GPS request timed out.';
+
+            }
+
+
+            statusMessage.textContent =
+                message;
+
+
+            showMessage(
+                message,
+                'danger'
+            );
+
+        }
+
+
+        updateRouteOptions();
+
+        // ----------------------------------------------------
+        // START TRACKING
+        // ----------------------------------------------------
+
+        startButton.addEventListener(
+            'click',
+            async function () {
+
+                const busId =
+                    busSelect.value;
+
+                const routeId =
+                    routeSelect.value;
+
+
+                // -----------------------------------------------
+                // BUS VALIDATION
+                // -----------------------------------------------
+
+                if (!busId) {
+
+                    showMessage(
+                        'Please select a bus first.',
+                        'warning'
+                    );
+
+                    return;
+                }
+
+
+                // -----------------------------------------------
+                // ROUTE VALIDATION
+                // -----------------------------------------------
+
+                if (!routeId) {
+
+                    showMessage(
+                        'Please select a route first.',
+                        'warning'
+                    );
+
+                    return;
+                }
+
+
+                // Hide previous messages
+
+                messageBox.style.display =
+                    'none';
+
+
+                // -----------------------------------------------
+                // SIMULATION MODE
+                // -----------------------------------------------
+
+                if (
+                    simulationMode &&
+                    simulationMode.checked
+                ) {
+
+                    startSimulation();
+
+                    return;
+                }
+
+                // -----------------------------------------------
+                // SAVE CURRENT ROUTE
+                // -----------------------------------------------
+
+                const routeFormData =
+                    new FormData();
+
+                routeFormData.append(
+                    'bus_id',
+                    busId
+                );
+
+                routeFormData.append(
+                    'route_id',
+                    routeId
+                );
+
+                try {
+
+                    const routeResponse =
+                        await fetch(
+                            "{% url 'buses:set_bus_route' %}",
+                            {
+                                method: 'POST',
+
+                                headers: {
+                                    'X-CSRFToken':
+                                        csrftoken
+                                },
+
+                                body:
+                                    routeFormData
+                            }
+                        );
+
+                    const routeResponseData =
+                        await routeResponse.json();
+
+                    if (
+                        !routeResponse.ok ||
+                        !routeResponseData.success
+                    ) {
+
+                        showMessage(
+                            routeResponseData.message ||
+                            'Unable to set the selected route.',
+                            'danger'
+                        );
+
+                        return;
+                    }
+
+                } catch (error) {
+
+                    console.error(
+                        'Route assignment error:',
+                        error
+                    );
+
+                    showMessage(
+                        'Unable to assign the selected route.',
+                        'danger'
+                    );
+
+                    return;
+                }
+
+                // -----------------------------------------------
+                // REAL GPS MODE
+                // -----------------------------------------------
+
+                if (!navigator.geolocation) {
+
+                    showMessage(
+                        'Geolocation is not supported by this browser.',
+                        'danger'
+                    );
+
+                    return;
+                }
+
+
+                trackingStatus.textContent =
+                    'Starting GPS tracking...';
+
+                statusMessage.textContent =
+                    'Requesting your current location...';
+
+                statusIndicator.classList.add(
+                    'active'
+                );
+
+
+                isTracking = true;
+
+                startButton.disabled =
+                    true;
+
+                stopButton.disabled =
+                    false;
+
+                busSelect.disabled =
+                    true;
+
+                routeSelect.disabled =
+                    true;
+
+
+                watchId =
+                    navigator.geolocation.watchPosition(
+                        sendLocation,
+                        handleLocationError,
+                        {
+                            enableHighAccuracy:
+                                true,
+
+                            maximumAge:
+                                5000,
+
+                            timeout:
+                                10000
+                        }
+                    );
+
+            }
+        );
+
+        // ----------------------------------------------------
+        // STOP TRACKING
+        // ----------------------------------------------------
+
+        stopButton.addEventListener('click', async function () {
+
+            if (simulationTimer !== null) {
+
+                stopSimulation();
+
+                return;
+            }
+
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            isTracking = false;
+
+            const busId = busSelect.value;
+
+            if (!busId) {
+                statusMessage.textContent = 'Please select a bus first.';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('bus_id', busId);
+
+            try {
+
+                const response = await fetch(
+                    "{% url 'buses:stop_bus_tracking' %}",
+                    {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrftoken
+                        },
+                        body: formData
+                    }
+                );
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(
+                        data.message || 'Failed to stop tracking.'
+                    );
+                }
+
+                trackingStatus.textContent =
+                    'GPS tracking is stopped';
+
+                statusMessage.textContent =
+                    'GPS tracking stopped successfully.';
+
+                statusMessage.className =
+                    'alert alert-secondary mt-3';
+
+                statusIndicator.classList.remove('active');
+
+                stopButton.disabled = true;
+                startButton.disabled = false;
+
+            } catch (error) {
+
+                console.error(
+                    'Stop tracking error:',
+                    error
+                );
+
+                statusMessage.textContent =
+                    'Failed to stop GPS tracking: ' +
+                    error.message;
+
+                statusMessage.className =
+                    'alert alert-danger mt-3';
+            }
+        });
+    }
+);
+</script>
+
+{% endblock %}

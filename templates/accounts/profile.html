@@ -1,0 +1,345 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="container py-5">
+
+    <!-- Page Header -->
+    <div class="text-center mb-5">
+        <h1 class="fw-bold">
+            <i class="bi bi-person-circle me-2"></i>
+            My Profile
+        </h1>
+
+        <p class="text-muted mb-0">
+            View and update your personal information
+        </p>
+    </div>
+
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show"
+                 role="alert">
+
+                <i class="bi bi-check-circle me-2"></i>
+                {{ message }}
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="alert">
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+
+    <div class="row g-4">
+
+        <!-- Profile Card -->
+        <div class="col-lg-4">
+
+            <div class="card border-0 shadow-sm h-100">
+
+                <div class="card-body text-center p-4">
+
+                    <!-- Profile Picture -->
+                    <div class="mb-4">
+
+                        {% if profile.profile_picture %}
+
+                            <img src="{{ profile.profile_picture.url }}"
+                                 alt="Profile Picture"
+                                 class="rounded-circle shadow"
+                                 style="
+                                    width: 150px;
+                                    height: 150px;
+                                    object-fit: cover;
+                                 ">
+
+                        {% else %}
+
+                            <div class="rounded-circle bg-light
+                                        d-flex align-items-center
+                                        justify-content-center mx-auto shadow-sm"
+                                 style="
+                                    width: 150px;
+                                    height: 150px;
+                                 ">
+
+                                <i class="bi bi-person-fill text-secondary"
+                                   style="font-size: 5rem;">
+                                </i>
+
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- User Name -->
+                    <h3 class="fw-bold mb-1">
+
+                        {% if request.user.get_full_name %}
+                            {{ request.user.get_full_name }}
+                        {% else %}
+                            {{ request.user.username }}
+                        {% endif %}
+
+                    </h3>
+
+
+                    <!-- Username -->
+                    <p class="text-muted mb-3">
+                        @{{ request.user.username }}
+                    </p>
+
+
+                    <!-- Email -->
+                    {% if request.user.email %}
+                        <div class="text-muted mb-2">
+                            <i class="bi bi-envelope me-2"></i>
+                            {{ request.user.email }}
+                        </div>
+                    {% endif %}
+
+
+                    <!-- Phone -->
+                    {% if profile.phone %}
+                        <div class="text-muted mb-2">
+                            <i class="bi bi-telephone me-2"></i>
+                            {{ profile.phone }}
+                        </div>
+                    {% endif %}
+
+
+                    <!-- Location -->
+                    {% if profile.location %}
+                        <div class="text-muted">
+                            <i class="bi bi-geo-alt me-2"></i>
+                            {{ profile.location }}
+                        </div>
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Edit Profile -->
+        <div class="col-lg-8">
+
+            <div class="card border-0 shadow-sm">
+
+                <div class="card-header bg-white border-0 p-4">
+
+                    <h4 class="fw-bold mb-1">
+                        <i class="bi bi-pencil-square me-2"></i>
+                        Edit Profile
+                    </h4>
+
+                    <p class="text-muted mb-0">
+                        Update your personal information below.
+                    </p>
+
+                </div>
+
+
+                <div class="card-body p-4">
+
+                    <form method="post"
+                          enctype="multipart/form-data">
+
+                        {% csrf_token %}
+
+
+                        <!-- Account Information -->
+                        <h5 class="fw-bold mb-3">
+                            Account Information
+                        </h5>
+
+                        <div class="row g-3">
+
+                            <!-- First Name -->
+                            <div class="col-md-6">
+
+                                <label for="{{ user_form.first_name.id_for_label }}"
+                                       class="form-label fw-semibold">
+
+                                    First Name
+
+                                </label>
+
+                                {{ user_form.first_name }}
+
+                                {% if user_form.first_name.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ user_form.first_name.errors }}
+                                    </div>
+                                {% endif %}
+
+                            </div>
+
+
+                            <!-- Last Name -->
+                            <div class="col-md-6">
+
+                                <label for="{{ user_form.last_name.id_for_label }}"
+                                       class="form-label fw-semibold">
+
+                                    Last Name
+
+                                </label>
+
+                                {{ user_form.last_name }}
+
+                                {% if user_form.last_name.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ user_form.last_name.errors }}
+                                    </div>
+                                {% endif %}
+
+                            </div>
+
+
+                            <!-- Email -->
+                            <div class="col-12">
+
+                                <label for="{{ user_form.email.id_for_label }}"
+                                       class="form-label fw-semibold">
+
+                                    Email Address
+
+                                </label>
+
+                                {{ user_form.email }}
+
+                                {% if user_form.email.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ user_form.email.errors }}
+                                    </div>
+                                {% endif %}
+
+                            </div>
+
+                        </div>
+
+
+                        <hr class="my-4">
+
+
+                        <!-- Profile Information -->
+                        <h5 class="fw-bold mb-3">
+                            Profile Information
+                        </h5>
+
+                        <div class="row g-3">
+
+                            <!-- Profile Picture -->
+                            <div class="col-12">
+
+                                <label for="{{ profile_form.profile_picture.id_for_label }}"
+                                       class="form-label fw-semibold">
+
+                                    Profile Picture
+
+                                </label>
+
+                                {{ profile_form.profile_picture }}
+
+                                <div class="form-text">
+                                    Upload a JPG, JPEG, PNG or other supported image.
+                                </div>
+
+                                {% if profile_form.profile_picture.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ profile_form.profile_picture.errors }}
+                                    </div>
+                                {% endif %}
+
+                            </div>
+
+
+                            <!-- Phone -->
+                            <div class="col-md-6">
+
+                                <label for="{{ profile_form.phone.id_for_label }}"
+                                       class="form-label fw-semibold">
+
+                                    Phone Number
+
+                                </label>
+
+                                {{ profile_form.phone }}
+
+                                {% if profile_form.phone.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ profile_form.phone.errors }}
+                                    </div>
+                                {% endif %}
+
+                            </div>
+
+
+                            <!-- Location -->
+                            <div class="col-md-6">
+
+                                <label for="{{ profile_form.location.id_for_label }}"
+                                       class="form-label fw-semibold">
+
+                                    Location
+
+                                </label>
+
+                                {{ profile_form.location }}
+
+                                {% if profile_form.location.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ profile_form.location.errors }}
+                                    </div>
+                                {% endif %}
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- Buttons -->
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+
+                            <a href="{% url 'core:home' %}"
+                               class="btn btn-outline-secondary">
+
+                                <i class="bi bi-x-circle me-1"></i>
+                                Cancel
+
+                            </a>
+
+
+                            <button type="submit"
+                                    class="btn btn-primary">
+
+                                <i class="bi bi-save me-1"></i>
+                                Save Changes
+
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,370 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- START PAGE HEADER -->
+
+<section class="page-header py-5 bg-light">
+    <div class="container text-center">
+        <h1 class="fw-bold mb-2">Contact Us</h1>
+        <p class="text-muted mb-0">
+            Have a question or feedback? We'd love to hear from you.
+        </p>
+    </div>
+</section>
+<!-- END PAGE HEADER -->
+
+<!-- START CONTACT SECTION -->
+
+<section class="py-5">
+    <div class="container">
+
+    <div class="row g-5 align-items-stretch">
+
+        <!-- CONTACT FORM -->
+        <div class="col-lg-7">
+
+            <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 h-100">
+
+                <div class="mb-4">
+
+                    <span class="text-primary fw-semibold">
+                        GET IN TOUCH
+                    </span>
+
+                    <h2 class="fw-bold mt-2">
+                        Send Us a Message
+                    </h2>
+
+                    <p class="text-muted">
+                        If you have questions, suggestions, or feedback
+                        about Bus Route Finder, send us a message.
+                    </p>
+
+                </div>
+
+
+                <form method="post">
+
+                    {% csrf_token %}
+
+                    <div class="row g-3">
+
+                        <!-- NAME -->
+                        <div class="col-md-6">
+
+                            <label for="name"
+                                   class="form-label fw-semibold">
+                                Name
+                            </label>
+
+                            <input
+                                type="text"
+                                name="name"
+                                id="name"
+                                class="form-control"
+                                placeholder="Enter your name"
+                                required>
+
+                        </div>
+
+
+                        <!-- EMAIL -->
+                        <div class="col-md-6">
+
+                            <label for="email"
+                                   class="form-label fw-semibold">
+                                Email
+                            </label>
+
+                            <input
+                                type="email"
+                                name="email"
+                                id="email"
+                                class="form-control"
+                                placeholder="Enter your email"
+                                required>
+
+                        </div>
+
+
+                        <!-- SUBJECT -->
+                        <div class="col-12">
+
+                            <label for="subject"
+                                   class="form-label fw-semibold">
+                                Subject
+                            </label>
+
+                            <input
+                                type="text"
+                                name="subject"
+                                id="subject"
+                                class="form-control"
+                                placeholder="What is your message about?"
+                                required>
+
+                        </div>
+
+
+                        <!-- MESSAGE -->
+                        <div class="col-12">
+
+                            <label for="message"
+                                   class="form-label fw-semibold">
+                                Message
+                            </label>
+
+                            <textarea
+                                name="message"
+                                id="message"
+                                rows="6"
+                                class="form-control"
+                                placeholder="Write your message here..."
+                                required></textarea>
+
+                        </div>
+
+
+                        <!-- SUBMIT -->
+                        <div class="col-12">
+
+                            <button
+                                type="submit"
+                                class="btn btn-primary px-4 py-2">
+
+                                <i class="bi bi-send me-2"></i>
+                                Send Message
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+
+        <!-- CONTACT INFORMATION -->
+        <div class="col-lg-5">
+
+            <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 h-100">
+
+                <span class="text-primary fw-semibold">
+                    CONTACT INFORMATION
+                </span>
+
+                <h2 class="fw-bold mt-2 mb-4">
+                    We're Here to Help
+                </h2>
+
+                <p class="text-muted mb-4">
+                    Whether you need help finding a route or want to
+                    share feedback about the system, feel free to
+                    get in touch with us.
+                </p>
+
+
+                <!-- EMAIL -->
+                <div class="d-flex align-items-start mb-4">
+
+                    <div class="bg-primary bg-opacity-10
+                                rounded-circle d-flex
+                                align-items-center justify-content-center
+                                flex-shrink-0"
+                         style="width: 50px; height: 50px;">
+
+                        <i class="bi bi-envelope-fill text-primary"></i>
+
+                    </div>
+
+                    <div class="ms-3">
+
+                        <h6 class="fw-bold mb-1">
+                            Email
+                        </h6>
+
+                        <p class="text-muted mb-0">
+                            support@busroutefinder.com
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <!-- PHONE -->
+                <div class="d-flex align-items-start mb-4">
+
+                    <div class="bg-primary bg-opacity-10
+                                rounded-circle d-flex
+                                align-items-center justify-content-center
+                                flex-shrink-0"
+                         style="width: 50px; height: 50px;">
+
+                        <i class="bi bi-telephone-fill text-primary"></i>
+
+                    </div>
+
+                    <div class="ms-3">
+
+                        <h6 class="fw-bold mb-1">
+                            Phone
+                        </h6>
+
+                        <p class="text-muted mb-0">
+                            +91 7907 108402
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <!-- LOCATION -->
+                <div class="d-flex align-items-start mb-4">
+
+                    <div class="bg-primary bg-opacity-10
+                                rounded-circle d-flex
+                                align-items-center justify-content-center
+                                flex-shrink-0"
+                         style="width: 50px; height: 50px;">
+
+                        <i class="bi bi-geo-alt-fill text-primary"></i>
+
+                    </div>
+
+                    <div class="ms-3">
+
+                        <h6 class="fw-bold mb-1">
+                            Location
+                        </h6>
+
+                        <p class="text-muted mb-0">
+                            Kerala, India
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <!-- WORKING HOURS -->
+                <div class="d-flex align-items-start">
+
+                    <div class="bg-primary bg-opacity-10
+                                rounded-circle d-flex
+                                align-items-center justify-content-center
+                                flex-shrink-0"
+                         style="width: 50px; height: 50px;">
+
+                        <i class="bi bi-clock-fill text-primary"></i>
+
+                    </div>
+
+                    <div class="ms-3">
+
+                        <h6 class="fw-bold mb-1">
+                            Support Hours
+                        </h6>
+
+                        <p class="text-muted mb-0">
+                            Monday – Saturday<br>
+                            9:00 AM – 6:00 PM
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <!-- SOCIAL ICONS -->
+                <div class="border-top mt-4 pt-4">
+
+                    <h6 class="fw-bold mb-3">
+                        Follow Us
+                    </h6>
+
+                    <div class="d-flex gap-2">
+
+                        <a href="#"
+                           class="btn btn-outline-primary rounded-circle"
+                           aria-label="Facebook">
+
+                            <i class="bi bi-facebook"></i>
+
+                        </a>
+
+                        <a href="#"
+                           class="btn btn-outline-primary rounded-circle"
+                           aria-label="Instagram">
+
+                            <i class="bi bi-instagram"></i>
+
+                        </a>
+
+                        <a href="#"
+                           class="btn btn-outline-primary rounded-circle"
+                           aria-label="Twitter">
+
+                            <i class="bi bi-twitter-x"></i>
+
+                        </a>
+
+                        <a href="#"
+                           class="btn btn-outline-primary rounded-circle"
+                           aria-label="LinkedIn">
+
+                            <i class="bi bi-linkedin"></i>
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+```
+
+</section>
+<!-- END CONTACT SECTION -->
+
+<!-- START CTA -->
+
+<section class="py-5 bg-light">
+    <div class="container text-center">
+
+    <h2 class="fw-bold">
+        Looking for a Bus Route?
+    </h2>
+
+    <p class="text-muted mb-4">
+        Find the best available route between your starting point
+        and destination.
+    </p>
+
+    <a href="{% url 'routes:route_search' %}"
+       class="btn btn-primary px-4 py-2">
+
+        <i class="bi bi-search me-2"></i>
+        Search Bus Routes
+
+    </a>
+
+</div>
+
+</section>
+<!-- END CTA -->
+
+{% endblock %}

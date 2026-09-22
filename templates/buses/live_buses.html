@@ -1,0 +1,2700 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+
+<style>
+
+    .live-wrapper {
+        padding: 40px 0;
+        background: #f8f9fa;
+        min-height: calc(100vh - 80px);
+    }
+
+    .live-card {
+        border: none;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    .live-header {
+        padding: 25px 30px;
+        background: #212529;
+        color: white;
+    }
+
+    .live-header h2 {
+        margin-bottom: 6px;
+        font-weight: 600;
+    }
+
+    .live-header p {
+        margin-bottom: 0;
+        opacity: 0.75;
+    }
+
+    .live-body {
+        padding: 25px 30px;
+    }
+
+    #liveMap {
+        width: 100%;
+        height: 550px;
+        border-radius: 14px;
+        border: 1px solid #dee2e6;
+        overflow: hidden;
+    }
+
+    .map-placeholder {
+        height: 550px;
+        border-radius: 14px;
+        border: 1px dashed #ced4da;
+        background: #f8f9fa;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        text-align: center;
+        color: #6c757d;
+    }
+
+    .map-placeholder i {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 12px;
+    }
+
+    .bus-list {
+        margin-top: 25px;
+    }
+
+    .bus-card {
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        background: white;
+        cursor: pointer;
+        transition: 0.2s ease;
+    }
+
+    .bus-card:hover {
+        border-color: #198754;
+        transform: translateY(-1px);
+    }
+
+    .bus-card.active {
+        border-color: #198754;
+        background: #f0fff7;
+    }
+
+    .bus-card.live {
+        border-left: 4px solid #198754;
+    }
+
+    .bus-card.stopped {
+        border-left: 4px solid #6c757d;
+        background: #f8f9fa;
+        opacity: 0.85;
+    }
+
+    .bus-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        background: #e9f7ef;
+        color: #198754;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        font-size: 1.25rem;
+    }
+
+    .bus-card.stopped .bus-icon {
+        background: #e9ecef;
+        color: #6c757d;
+    }
+
+    .bus-number {
+        font-weight: 600;
+    }
+
+    .bus-meta {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+    .online-dot {
+        width: 9px;
+        height: 9px;
+        display: inline-block;
+        border-radius: 50%;
+        background: #198754;
+        margin-right: 5px;
+    }
+
+    .offline-dot {
+        width: 9px;
+        height: 9px;
+        display: inline-block;
+        border-radius: 50%;
+        background: #6c757d;
+        margin-right: 5px;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.75rem;
+        padding: 5px 9px;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+
+    .status-live {
+        background: #d1e7dd;
+        color: #146c43;
+    }
+
+    .status-stopped {
+        background: #e9ecef;
+        color: #495057;
+    }
+
+    .map-info {
+        margin-top: 15px;
+        padding: 12px 15px;
+        border-radius: 10px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        font-size: 0.9rem;
+    }
+
+    .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-top: 15px;
+        padding: 12px 15px;
+        border-radius: 10px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        font-size: 0.85rem;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .legend-live {
+        background: #198754;
+    }
+
+    .legend-stopped {
+        background: #6c757d;
+    }
+
+    /*
+     * Custom bus marker
+     */
+
+    .custom-bus-marker {
+        background: transparent;
+        border: none;
+    }
+
+    .bus-marker-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        font-size: 20px;
+
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .bus-marker-live {
+        background: #198754;
+    }
+
+    .bus-marker-stopped {
+        background: #6c757d;
+        opacity: 0.75;
+    }
+
+    .last-update {
+        font-size: 12px;
+        color: #6c757d;
+    }
+
+    @media (max-width: 767.98px) {
+
+        .live-wrapper {
+            padding: 20px 0;
+        }
+
+        .live-header,
+        .live-body {
+            padding: 20px;
+        }
+
+        #liveMap,
+        .map-placeholder {
+            height: 400px;
+        }
+
+        .legend {
+            flex-direction: column;
+            gap: 8px;
+        }
+    }
+
+    .route-progress {
+        margin-top: 12px;
+    }
+
+    .route-progress-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        margin-bottom: 5px;
+        color: #6c757d;
+    }
+
+    .route-progress-track {
+        width: 100%;
+        height: 7px;
+        background: #e9ecef;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .route-progress-bar {
+        height: 100%;
+        width: 0;
+        border-radius: 10px;
+        transition: width 0.6s ease;
+        background: #198754;
+    }
+
+</style>
+
+
+<div class="live-wrapper">
+
+    <div class="container">
+
+        <div class="card live-card">
+
+            <!-- =====================================================
+                 HEADER
+            ====================================================== -->
+
+            <div class="live-header">
+
+                <h2>
+                    <i class="bi bi-bus-front-fill me-2"></i>
+                    Live Bus Tracking
+                </h2>
+
+                <p>
+                    See buses that are currently sharing
+                    their GPS location.
+                </p>
+
+            </div>
+
+
+            <!-- =====================================================
+                 BODY
+            ====================================================== -->
+
+            <div class="live-body">
+
+                <!-- =================================================
+                     BUS FILTER
+                ================================================== -->
+
+                <div class="row mb-4">
+
+                    <div class="col-md-6">
+
+                        <label
+                            for="busFilter"
+                            class="form-label fw-semibold"
+                        >
+                            Select Bus
+                        </label>
+
+                        <select
+                            id="busFilter"
+                            class="form-select"
+                        >
+
+                            <option value="all">
+                                All Buses
+                            </option>
+
+                            {% for bus in buses %}
+
+                                <option value="{{ bus.id }}">
+                                    {{ bus.bus_number }}
+                                    -
+                                    {{ bus.bus_name }}
+                                </option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="col-md-6 d-flex align-items-end">
+
+                        <div
+                            class="map-info w-100 mb-0"
+                            id="liveStatus"
+                        >
+                            <i class="bi bi-arrow-repeat me-1"></i>
+                            Connecting to live bus locations...
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- =================================================
+                     STATUS LEGEND
+                ================================================== -->
+
+                <div class="legend mb-3">
+
+                    <div class="legend-item">
+
+                        <span
+                            class="legend-dot legend-live"
+                        ></span>
+
+                        <span>
+                            <strong>Live now</strong>
+                            -
+                            Driver is currently sharing GPS.
+                        </span>
+
+                    </div>
+
+
+                    <div class="legend-item">
+
+                        <span
+                            class="legend-dot legend-stopped"
+                        ></span>
+
+                        <span>
+                            <strong>Tracking stopped</strong>
+                            -
+                            Showing the last known location.
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <!-- =================================================
+                     MAP
+                ================================================== -->
+
+                <div
+                    id="mapPlaceholder"
+                    class="map-placeholder"
+                >
+
+                    <div>
+
+                        <i class="bi bi-map"></i>
+
+                        <strong>
+                            Waiting for bus locations
+                        </strong>
+
+                        <p class="mb-0 mt-1">
+                            Buses will appear here when
+                            drivers start GPS tracking.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    id="liveMap"
+                    style="display: none;"
+                ></div>
+
+
+                <!-- =================================================
+                     BUS LIST
+                ================================================== -->
+
+                <div class="bus-list">
+
+                    <div
+                        class="d-flex justify-content-between
+                               align-items-center mb-3"
+                    >
+
+                        <h5 class="mb-0">
+                            Buses with Location Data
+                        </h5>
+
+                        <span
+                            id="busCount"
+                            class="badge bg-success"
+                        >
+                            0
+                        </span>
+
+                    </div>
+
+
+                    <div id="busListContainer">
+
+                        <div class="text-muted">
+                            <i class="bi bi-bus-front me-1"></i>
+                            No bus locations available.
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+</script>
+
+
+<script>
+
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        const mapElement =
+            document.getElementById('liveMap');
+
+        const mapPlaceholder =
+            document.getElementById('mapPlaceholder');
+
+        const busFilter =
+            document.getElementById('busFilter');
+
+        const busCount =
+            document.getElementById('busCount');
+
+        const busListContainer =
+            document.getElementById(
+                'busListContainer'
+            );
+
+        const liveStatus =
+            document.getElementById(
+                'liveStatus'
+            );
+
+
+        let map = null;
+
+        let markers = {};
+        const routeLines = {};
+        const routeStopMarkers = {};
+
+        let currentLocations = [];
+
+        let departureEvents = {};
+
+        // =========================================================
+        // INITIALIZE MAP
+        // =========================================================
+
+        function initializeMap(
+            latitude,
+            longitude
+        ) {
+
+            if (map !== null) {
+                return;
+            }
+
+
+            map = L.map(
+                'liveMap'
+            ).setView(
+                [
+                    latitude,
+                    longitude
+                ],
+                14
+            );
+
+
+            /*
+             * Use the same CARTO tile configuration
+             * that you configured for the Driver GPS page.
+             *
+             * Replace YOUR_CARTO_KEY with your actual key.
+             *
+             * IMPORTANT:
+             * Do not share your CARTO key publicly.
+             */
+
+            L.tileLayer(
+                'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_3of5_1_e490849b823df0b4085d8968\n' +
+                '\n',
+                {
+                    maxZoom: 20,
+
+                    attribution:
+                        '&copy; OpenStreetMap contributors &copy; CARTO',
+
+                    subdomains:
+                        'abcd'
+                }
+            ).addTo(map);
+
+
+            mapPlaceholder.style.display =
+                'none';
+
+            mapElement.style.display =
+                'block';
+
+
+            setTimeout(
+                function () {
+
+                    map.invalidateSize();
+
+                },
+                100
+            );
+
+        }
+
+
+        // =========================================================
+        // CREATE BUS MARKER
+        // =========================================================
+
+        function createBusMarker(
+            location
+        ) {
+
+            const isLive =
+                location.is_tracking;
+
+
+            const markerClass =
+                isLive
+                    ? 'bus-marker-live'
+                    : 'bus-marker-stopped';
+
+
+            const icon =
+                L.divIcon({
+
+                    className:
+                        'custom-bus-marker',
+
+                    html:
+                        `
+                        <div
+                            class="
+                                bus-marker-icon
+                                ${markerClass}
+                            "
+                        >
+                            <i class="bi bi-bus-front-fill"></i>
+                        </div>
+                        `,
+
+                    iconSize: [
+                        38,
+                        38
+                    ],
+
+                    iconAnchor: [
+                        19,
+                        19
+                    ],
+
+                    popupAnchor: [
+                        0,
+                        -19
+                    ]
+
+                });
+
+
+            const marker =
+                L.marker(
+                    [
+                        location.latitude,
+                        location.longitude
+                    ],
+                    {
+                        icon: icon
+                    }
+                );
+
+            marker.bindPopup(
+                createPopupContent(
+                    location
+                )
+            );
+
+
+            marker.addTo(map);
+
+
+            return marker;
+
+        }
+
+        // =========================================================
+        // SMOOTHLY MOVE BUS MARKER
+        // =========================================================
+
+        function animateMarker(
+            marker,
+            newPosition,
+            duration = 4500
+        ) {
+            const startPosition =
+                marker.getLatLng();
+
+            const startTime =
+                performance.now();
+
+            function animate(currentTime) {
+
+                const elapsed =
+                    currentTime - startTime;
+
+                const progress =
+                    Math.min(
+                        elapsed / duration,
+                        1
+                    );
+
+                // Ease-in-out movement
+                const easedProgress =
+                    progress < 0.5
+                        ? 2 * progress * progress
+                        : 1 -
+                          Math.pow(
+                              -2 * progress + 2,
+                              2
+                          ) / 2;
+
+                const latitude =
+                    startPosition.lat +
+                    (
+                        newPosition[0] -
+                        startPosition.lat
+                    ) * easedProgress;
+
+                const longitude =
+                    startPosition.lng +
+                    (
+                        newPosition[1] -
+                        startPosition.lng
+                    ) * easedProgress;
+
+                marker.setLatLng([
+                    latitude,
+                    longitude
+                ]);
+
+                if (progress < 1) {
+                    requestAnimationFrame(
+                        animate
+                    );
+                }
+            }
+
+            requestAnimationFrame(
+                animate
+            );
+        }
+
+        function getEtaText(location) {
+
+            if (location.eta_status === "ARRIVED") {
+
+                return "Arrived";
+
+            }
+
+            if (location.eta_status === "ARRIVING_SOON") {
+
+                return "Arriving soon";
+
+            }
+
+            if (
+                location.eta_status === "ETA" &&
+                location.eta_minutes !== null &&
+                location.eta_minutes !== undefined
+            ) {
+
+                return `ETA: ${location.eta_minutes} min`;
+
+            }
+
+            return "ETA unavailable";
+        }
+
+        // =========================================================
+        // POPUP CONTENT
+        // =========================================================
+
+        function createPopupContent(
+            location
+        ) {
+            let speedText =
+                'Unavailable';
+
+
+            if (
+                location.speed !== null
+            ) {
+
+                speedText =
+                    location.speed.toFixed(1) +
+                    ' km/h';
+
+            }
+
+
+            const updated =
+                new Date(
+                    location.updated_at
+                );
+
+
+            let statusBadge = '';
+
+
+            if (
+                location.is_tracking
+            ) {
+
+                statusBadge = `
+                    <span
+                        class="status-badge status-live"
+                    >
+                        <i class="bi bi-broadcast"></i>
+                        Live now
+                    </span>
+                `;
+
+            } else {
+
+                statusBadge = `
+                    <span
+                        class="status-badge status-stopped"
+                    >
+                        <i class="bi bi-stop-circle"></i>
+                        Tracking stopped
+                    </span>
+                `;
+
+            }
+
+            let etaText = "N/A";
+
+            if (location.eta_status === "ARRIVED") {
+
+                etaText = "Arrived";
+
+            } else if (location.eta_status === "ARRIVING_SOON") {
+
+                etaText = "Arriving soon";
+
+            } else if (
+                location.eta_status === "ETA" &&
+                location.eta_minutes !== null &&
+                location.eta_minutes !== undefined
+            ) {
+
+                etaText =
+                    "ETA: " +
+                    location.eta_minutes +
+                    " min";
+
+            }
+
+            return `
+
+                <div style="min-width:220px">
+
+                    <strong>
+                        🚌 ${location.bus_number}
+                    </strong>
+
+                    <div class="mt-1">
+                        ${location.bus_name}
+                    </div>
+
+                    ${
+                        location.route_name
+                            ? `
+                                <div class="mt-1">
+                                    <strong>Route:</strong>
+                                    ${location.route_name}
+                                </div>
+                              `
+                            : `
+                                <div class="mt-1 text-muted">
+                                    <strong>Route:</strong>
+                                    Not assigned
+                                </div>
+                              `
+                    }
+
+                    ${
+                        location.current_stop
+                            ? `
+                                <div class="mt-1">
+                                    <strong>Current stop:</strong>
+                                    ${location.current_stop}
+                                </div>
+                              `
+                            : ''
+                    }
+
+                    ${
+                        location.next_stop
+                            ? `
+                                <div class="mt-1">
+                                    <strong>Next stop:</strong>
+                                    ${location.next_stop}
+                                </div>
+                              `
+                            : ''
+                    }
+
+                    ${
+                        location.stop_status
+                            ? `
+                                <div
+                                    class="mt-2 pt-2"
+                                    style="border-top: 1px solid #eee;"
+                                >
+
+                                    <div class="d-flex justify-content-between">
+
+                                        <strong>
+                                            Stop status:
+                                        </strong>
+
+                                        <span
+                                            class="
+                                                badge
+                                                ${
+                                                    location.stop_status === 'ARRIVED'
+                                                        ? 'bg-success'
+                                                        : location.stop_status === 'DEPARTED'
+                                                            ? 'bg-primary'
+                                                            : 'bg-secondary'
+                                                }
+                                            "
+                                        >
+                                            ${
+                                                location.stop_status === 'ARRIVED'
+                                                    ? 'Arrived'
+                                                    : location.stop_status === 'DEPARTED'
+                                                        ? 'Departed'
+                                                        : 'Travelling'
+                                            }
+                                        </span>
+
+                                    </div>
+
+                                    ${
+                                        location.stop_status === 'ARRIVED' &&
+                                        location.current_stop
+                                            ? `
+                                                <div
+                                                    class="mt-1"
+                                                    style="font-size: 12px;"
+                                                >
+                                                    <i class="bi bi-geo-alt-fill text-success me-1"></i>
+
+                                                    Arrived at
+                                                    <strong>
+                                                        ${location.current_stop}
+                                                    </strong>
+                                                </div>
+                                              `
+                                            : ''
+                                    }
+
+                                    ${
+                                        location.stop_status === 'DEPARTED' &&
+                                        location.current_stop
+                                            ? `
+                                                <div
+                                                    class="mt-1"
+                                                    style="font-size: 12px;"
+                                                >
+                                                    <i class="bi bi-arrow-right-circle text-primary me-1"></i>
+
+                                                    Departed from
+                                                    <strong>
+                                                        ${location.current_stop}
+                                                    </strong>
+                                                </div>
+                                              `
+                                            : ''
+                                    }
+
+                                </div>
+                              `
+                            : ''
+                    }
+
+                    <div class="my-2">
+                        ${statusBadge}
+                    </div>
+
+
+                    <hr class="my-2">
+
+
+                    <div>
+                        <strong>Speed:</strong>
+                        ${speedText}
+                    </div>
+
+
+                    <div>
+                        <strong>Accuracy:</strong>
+
+                        ${
+                            location.accuracy !== null
+                            ? location.accuracy.toFixed(1) + ' m'
+                            : 'Unavailable'
+                        }
+
+                    </div>
+
+
+                    <div
+                        class="text-muted mt-2"
+                        style="font-size:12px"
+                    >
+
+                        Last update:
+                        ${updated.toLocaleTimeString()}
+
+                    </div>
+
+
+                    ${
+                        !location.is_tracking
+                        ? `
+                            <div
+                                class="text-muted mt-1"
+                                style="font-size:11px"
+                            >
+                                This is the last known
+                                location.
+                            </div>
+                          `
+                        : ''
+                    }
+
+                </div>
+                <div>
+                    <strong>${etaText}</strong>
+                </div>
+
+            `;
+
+        }
+
+        // =========================================================
+        // SMOOTH BUS MOVEMENT
+        // =========================================================
+
+        function animateBusMarker(
+            marker,
+            targetLatitude,
+            targetLongitude,
+            duration = 4500
+        ) {
+
+            // Cancel any previous animation
+            if (marker._animationFrame) {
+
+                cancelAnimationFrame(
+                    marker._animationFrame
+                );
+
+            }
+
+            const startPosition =
+                marker.getLatLng();
+
+            const startLatitude =
+                startPosition.lat;
+
+            const startLongitude =
+                startPosition.lng;
+
+            const startTime =
+                performance.now();
+
+
+            function animate(currentTime) {
+
+                const elapsed =
+                    currentTime - startTime;
+
+                const progress =
+                    Math.min(
+                        elapsed / duration,
+                        1
+                    );
+
+
+                // Smooth ease-in-out movement
+                const easedProgress =
+                    progress < 0.5
+                        ? 2 * progress * progress
+                        : 1 -
+                          Math.pow(
+                              -2 * progress + 2,
+                              2
+                          ) / 2;
+
+
+                const latitude =
+                    startLatitude +
+                    (
+                        targetLatitude -
+                        startLatitude
+                    ) *
+                    easedProgress;
+
+
+                const longitude =
+                    startLongitude +
+                    (
+                        targetLongitude -
+                        startLongitude
+                    ) *
+                    easedProgress;
+
+
+                marker.setLatLng([
+                    latitude,
+                    longitude
+                ]);
+
+
+                if (progress < 1) {
+
+                    marker._animationFrame =
+                        requestAnimationFrame(
+                            animate
+                        );
+
+                } else {
+
+                    marker._animationFrame =
+                        null;
+
+                    marker.setLatLng([
+                        targetLatitude,
+                        targetLongitude
+                    ]);
+
+                }
+
+            }
+
+
+            marker._animationFrame =
+                requestAnimationFrame(
+                    animate
+                );
+
+        }
+
+        async function drawRouteLine(location) {
+
+            if (
+                !location.route_id ||
+                !location.route_stops ||
+                location.route_stops.length < 2
+            ) {
+                return;
+            }
+
+            const routeId = location.route_id;
+
+            // Don't request the same route repeatedly.
+            if (routeLines[routeId]) {
+                return;
+            }
+
+            const stops = [...location.route_stops]
+                .sort(
+                    function (a, b) {
+                        return a.order - b.order;
+                    }
+                )
+                .filter(
+                    function (stop) {
+                        return (
+                            stop.latitude !== null &&
+                            stop.longitude !== null
+                        );
+                    }
+                );
+
+            if (stops.length < 2) {
+                return;
+            }
+
+            /*
+             * Store each road segment separately.
+             */
+            const segmentLines = [];
+
+            try {
+
+                for (
+                    let index = 0;
+                    index < stops.length - 1;
+                    index++
+                ) {
+
+                    const fromStop = stops[index];
+                    const toStop = stops[index + 1];
+
+                    /*
+                     * OSRM uses:
+                     * longitude,latitude
+                     */
+                    const coordinates =
+                        `${fromStop.longitude},${fromStop.latitude};` +
+                        `${toStop.longitude},${toStop.latitude}`;
+
+                    const routingUrl =
+                        `https://router.project-osrm.org/route/v1/driving/` +
+                        `${coordinates}` +
+                        `?overview=full&geometries=geojson`;
+
+                    const response =
+                        await fetch(routingUrl);
+
+                    if (!response.ok) {
+                        throw new Error(
+                            `OSRM request failed: ${response.status}`
+                        );
+                    }
+
+                    const data =
+                        await response.json();
+
+                    if (
+                        data.code !== 'Ok' ||
+                        !data.routes ||
+                        data.routes.length === 0
+                    ) {
+                        console.warn(
+                            'No road geometry returned for segment:',
+                            fromStop.name,
+                            '→',
+                            toStop.name
+                        );
+
+                        continue;
+                    }
+
+                    const geometry =
+                        data.routes[0].geometry;
+
+                    const latLngs =
+                        geometry.coordinates.map(
+                            function (coordinate) {
+                                return [
+                                    coordinate[1],
+                                    coordinate[0]
+                                ];
+                            }
+                        );
+
+                    const segmentLine =
+                        L.polyline(
+                            latLngs,
+                            {
+                                weight: 5,
+                                opacity: 0.75,
+                                lineJoin: 'round',
+                                lineCap: 'round'
+                            }
+                        ).addTo(map);
+
+                    segmentLines.push({
+                        fromStopId: fromStop.order,
+                        toStopId: toStop.order,
+                        fromStopName: fromStop.name,
+                        toStopName: toStop.name,
+                        line: segmentLine,
+                        geometry: latLngs
+                    });
+                }
+
+                /*
+                 * Store the complete segment collection
+                 * for this route.
+                 */
+                routeLines[routeId] = segmentLines;
+
+                console.log(
+                    `Loaded ${segmentLines.length} road segments for route ${routeId}.`
+                );
+
+            } catch (error) {
+
+                console.error(
+                    'Unable to load road geometry:',
+                    error
+                );
+            }
+        }
+
+        function drawRouteStops(location) {
+
+            if (
+                !location.route_id ||
+                !location.route_stops ||
+                location.route_stops.length === 0
+            ) {
+                return;
+            }
+
+            const routeId = location.route_id;
+
+            if (!routeStopMarkers[routeId]) {
+                routeStopMarkers[routeId] = [];
+            }
+
+            location.route_stops.forEach(
+                function (stop) {
+
+                    const existingMarker =
+                        routeStopMarkers[routeId].find(
+                            function (marker) {
+                                return marker.stopId === stop.order;
+                            }
+                        );
+
+                    if (existingMarker) {
+                        return;
+                    }
+
+                    const marker =
+                        L.circleMarker(
+                            [
+                                stop.latitude,
+                                stop.longitude
+                            ],
+                            {
+                                radius: 5,
+                                weight: 2,
+                                fillOpacity: 1
+                            }
+                        );
+
+                    marker.bindTooltip(
+                        stop.name,
+                        {
+                            direction: 'top',
+                            offset: [0, -5]
+                        }
+                    );
+
+                    marker.addTo(map);
+
+                    routeStopMarkers[routeId].push({
+                        stopId: stop.order,
+                        marker: marker
+                    });
+
+                }
+            );
+        }
+
+        function calculateDistanceKm(
+            latitude1,
+            longitude1,
+            latitude2,
+            longitude2
+        ) {
+
+            const earthRadiusKm = 6371;
+
+            const lat1 =
+                latitude1 * Math.PI / 180;
+
+            const lat2 =
+                latitude2 * Math.PI / 180;
+
+            const deltaLatitude =
+                (latitude2 - latitude1) *
+                Math.PI / 180;
+
+            const deltaLongitude =
+                (longitude2 - longitude1) *
+                Math.PI / 180;
+
+            const a =
+                Math.sin(deltaLatitude / 2) *
+                Math.sin(deltaLatitude / 2)
+                +
+                Math.cos(lat1) *
+                Math.cos(lat2) *
+                Math.sin(deltaLongitude / 2) *
+                Math.sin(deltaLongitude / 2);
+
+            const c =
+                2 *
+                Math.atan2(
+                    Math.sqrt(a),
+                    Math.sqrt(1 - a)
+                );
+
+            return earthRadiusKm * c;
+        }
+
+        function getRouteSegment(location) {
+
+            if (
+                !location.route_id ||
+                !location.current_stop ||
+                !location.next_stop
+            ) {
+                return null;
+            }
+
+            const segments =
+                routeLines[location.route_id];
+
+            if (!segments || segments.length === 0) {
+                return null;
+            }
+
+            const segment =
+                segments.find(
+                    function (item) {
+                        return (
+                            item.fromStopName ===
+                                location.current_stop &&
+                            item.toStopName ===
+                                location.next_stop
+                        );
+                    }
+                );
+
+            return segment || null;
+        }
+
+        function getNearestPointOnGeometry(
+            latitude,
+            longitude,
+            geometry
+        ) {
+
+            if (
+                !geometry ||
+                geometry.length === 0
+            ) {
+                return null;
+            }
+
+            let nearestPoint = null;
+            let nearestDistance = Infinity;
+
+            geometry.forEach(
+                function (coordinate) {
+
+                    const pointLat =
+                        coordinate[0];
+
+                    const pointLng =
+                        coordinate[1];
+
+                    const distance =
+                        calculateDistanceKm(
+                            latitude,
+                            longitude,
+                            pointLat,
+                            pointLng
+                        );
+
+                    if (distance < nearestDistance) {
+
+                        nearestDistance = distance;
+
+                        nearestPoint = {
+                            latitude: pointLat,
+                            longitude: pointLng,
+                            distance: distance
+                        };
+                    }
+                }
+            );
+
+            return nearestPoint;
+        }
+
+        function getRoadPosition(location) {
+
+            const segment =
+                getRouteSegment(location);
+
+            if (!segment) {
+                return null;
+            }
+
+            const geometry =
+                segment.geometry;
+
+            if (
+                !geometry ||
+                geometry.length === 0
+            ) {
+                return null;
+            }
+
+            return getNearestPointOnGeometry(
+                location.latitude,
+                location.longitude,
+                geometry
+            );
+        }
+
+        function buildSimulationPath(
+            route
+        ) {
+
+            if (
+                !route ||
+                !route.stops ||
+                route.stops.length < 2
+            ) {
+                return [];
+            }
+
+            const path = [];
+
+            route.stops
+                .sort(
+                    function (a, b) {
+                        return a.order - b.order;
+                    }
+                );
+
+            for (
+                let i = 0;
+                i < route.stops.length - 1;
+                i++
+            ) {
+
+                const fromStop =
+                    route.stops[i];
+
+                const toStop =
+                    route.stops[i + 1];
+
+                /*
+                 * We need the already loaded OSRM
+                 * geometry for this segment.
+                 */
+                const segment =
+                    routeLines[
+                        route.id
+                    ]?.find(
+                        function (item) {
+                            return (
+                                item.fromStopName ===
+                                    fromStop.name &&
+                                item.toStopName ===
+                                    toStop.name
+                            );
+                        }
+                    );
+
+                if (!segment) {
+                    continue;
+                }
+
+                const geometry =
+                    segment.geometry;
+
+                geometry.forEach(
+                    function (point) {
+
+                        path.push({
+                            latitude: point[0],
+                            longitude: point[1]
+                        });
+
+                    }
+                );
+            }
+
+            return path;
+        }
+
+        // =========================================================
+        // UPDATE MAP MARKERS
+        // =========================================================
+
+        function updateMarkers(
+            locations
+        ) {
+
+            if (map === null) {
+                return;
+            }
+
+
+            const selectedBus =
+                busFilter.value;
+
+
+            let visibleLocations =
+                locations;
+
+
+            if (
+                selectedBus !== 'all'
+            ) {
+
+                visibleLocations =
+                    locations.filter(
+                        location =>
+                            String(
+                                location.bus_id
+                            ) ===
+                            String(
+                                selectedBus
+                            )
+                    );
+
+            }
+
+
+            // -----------------------------------------------------
+            // Remove markers that are no longer visible
+            // -----------------------------------------------------
+
+            Object.keys(
+                markers
+            ).forEach(
+                busId => {
+
+                    const stillVisible =
+                        visibleLocations.some(
+                            location =>
+                                String(
+                                    location.bus_id
+                                ) ===
+                                String(
+                                    busId
+                                )
+                        );
+
+
+                    if (
+                        !stillVisible
+                    ) {
+
+                        map.removeLayer(
+                            markers[busId]
+                        );
+
+                        delete markers[busId];
+
+                    }
+
+                }
+            );
+
+
+            // -----------------------------------------------------
+            // Add / update markers
+            // -----------------------------------------------------
+
+            visibleLocations.forEach(
+                location => {
+
+                    let position = [
+                        location.latitude,
+                        location.longitude
+                    ];
+
+                    const roadPosition =
+                        getRoadPosition(location);
+
+                    if (
+                        roadPosition &&
+                        roadPosition.distance <= 0.15
+                    ) {
+                        position = [
+                            roadPosition.latitude,
+                            roadPosition.longitude
+                        ];
+                    }
+
+                    drawRouteLine(location);
+                    drawRouteStops(location);
+
+                    if (
+                        markers[
+                            location.bus_id
+                        ]
+                    ) {
+
+                        /*
+                         * If tracking status changes,
+                         * recreate the marker so its
+                         * appearance changes too.
+                         */
+
+                        const existingMarker =
+                            markers[
+                                location.bus_id
+                            ];
+
+                        animateBusMarker(
+                            existingMarker,
+                            location.latitude,
+                            location.longitude,
+                            4500
+                        );
+
+
+                        existingMarker.setPopupContent(
+                            createPopupContent(
+                                location
+                            )
+                        );
+
+                        /*
+                         * Recreate marker when live/stopped
+                         * state changes.
+                         */
+
+                        const oldTrackingState =
+                            existingMarker
+                                ._trackingState;
+
+
+                        if (
+                            oldTrackingState !==
+                            location.is_tracking
+                        ) {
+
+                            map.removeLayer(
+                                existingMarker
+                            );
+
+
+                            markers[
+                                location.bus_id
+                            ] =
+                                createBusMarker(
+                                    location
+                                );
+
+
+                            markers[
+                                location.bus_id
+                            ]._trackingState =
+                                location.is_tracking;
+
+                        }
+
+                    } else {
+
+                        markers[
+                            location.bus_id
+                        ] =
+                            createBusMarker(
+                                location
+                            );
+
+
+                        markers[
+                            location.bus_id
+                        ]._trackingState =
+                            location.is_tracking;
+
+                    }
+
+                }
+            );
+
+
+            // -----------------------------------------------------
+            // Center map when selecting a specific bus
+            // -----------------------------------------------------
+
+            if (
+                selectedBus !== 'all' &&
+                visibleLocations.length === 1
+            ) {
+
+                map.panTo(
+                    [
+                        visibleLocations[0].latitude,
+                        visibleLocations[0].longitude
+                    ],
+                    {
+                        animate: true,
+                        duration: 4.5,
+                        easeLinearity: 0.25
+                    }
+                );
+
+            }
+
+        }
+
+
+        // =========================================================
+        // RENDER BUS LIST
+        // =========================================================
+
+        function renderBusList(
+            locations
+        ) {
+
+            const selectedBus =
+                busFilter.value;
+
+
+            let visibleLocations =
+                locations;
+
+
+            if (
+                selectedBus !== 'all'
+            ) {
+
+                visibleLocations =
+                    locations.filter(
+                        location =>
+                            String(
+                                location.bus_id
+                            ) ===
+                            String(
+                                selectedBus
+                            )
+                    );
+
+            }
+
+
+            // -----------------------------------------------------
+            // Count
+            // -----------------------------------------------------
+
+            busCount.textContent =
+                visibleLocations.length;
+
+
+            // -----------------------------------------------------
+            // No buses
+            // -----------------------------------------------------
+
+            if (
+                visibleLocations.length === 0
+            ) {
+
+                busListContainer.innerHTML =
+                    `
+                    <div class="text-muted">
+                        <i class="bi bi-bus-front me-1"></i>
+                        No bus locations available.
+                    </div>
+                    `;
+
+                return;
+
+            }
+
+
+            busListContainer.innerHTML =
+                '';
+
+
+            // -----------------------------------------------------
+            // Render cards
+            // -----------------------------------------------------
+
+            visibleLocations.forEach(
+                location => {
+
+                    const updated =
+                        new Date(
+                            location.updated_at
+                        );
+
+
+                    const card =
+                        document.createElement(
+                            'div'
+                        );
+
+
+                    card.className =
+                        location.is_tracking
+                            ? 'bus-card live'
+                            : 'bus-card stopped';
+
+
+                    card.dataset.busId =
+                        location.bus_id;
+
+
+                    const speedText =
+                        location.speed !== null
+                            ? location.speed.toFixed(1)
+                              + ' km/h'
+                            : 'Speed unavailable';
+
+
+                    let statusHtml = '';
+
+
+                    if (
+                        location.is_tracking
+                    ) {
+
+                        statusHtml = `
+                            <span
+                                class="online-dot"
+                            ></span>
+
+                            <strong>
+                                Live now
+                            </strong>
+                        `;
+
+                    } else {
+
+                        statusHtml = `
+                            <span
+                                class="offline-dot"
+                            ></span>
+
+                            <strong>
+                                Tracking stopped
+                            </strong>
+                        `;
+
+                    }
+
+                    // ----------------------------------------------------
+                    // TEMPORARY DEPARTURE EVENT
+                    // ----------------------------------------------------
+
+                    const departureEvent =
+                        departureEvents[
+                            location.bus_id
+                        ];
+
+                    let departureHtml = '';
+
+                    if (
+                        departureEvent &&
+                        departureEvent.expiresAt > Date.now()
+                    ) {
+
+                        departureHtml = `
+                            <div
+                                class="bus-meta mt-2"
+                                style="font-weight: 600;"
+                            >
+                                🚌
+                                Departed from
+                                ${departureEvent.stop}
+                            </div>
+                        `;
+
+                    }
+
+                    card.innerHTML =
+                        `
+
+                        <div
+                            class="
+                                d-flex
+                                align-items-center
+                            "
+                        >
+
+                            <!-- BUS ICON -->
+
+                            <div
+                                class="bus-icon me-3"
+                            >
+
+                                <i
+                                    class="
+                                        bi
+                                        bi-bus-front-fill
+                                    "
+                                ></i>
+
+                            </div>
+
+
+                            <!-- BUS INFORMATION -->
+
+                            <div
+                                class="flex-grow-1"
+                            >
+
+                                <div
+                                    class="bus-number"
+                                >
+                                    ${location.bus_number}
+                                </div>
+
+
+                                <div
+                                    class="bus-meta"
+                                >
+                                    ${location.bus_name}
+                                </div>
+
+                                <div
+                                    class="bus-meta mt-1"
+                                >
+                                    <i class="bi bi-signpost-2 me-1"></i>
+
+                                    ${
+                                        location.route_name
+                                            ? location.route_name
+                                            : 'Route not assigned'
+                                    }
+                                </div>
+
+                                ${
+                                    location.current_stop
+                                        ? `
+                                            <div class="bus-meta mt-1">
+                                                <i class="bi bi-geo-alt me-1"></i>
+                                                <strong>Current stop:</strong>
+                                                ${location.current_stop}
+                                            </div>
+                                          `
+                                        : ''
+                                }
+
+                                ${
+                                    location.next_stop
+                                        ? `
+                                            <div class="bus-meta mt-1">
+                                                <i class="bi bi-arrow-right me-1"></i>
+                                                <strong>Next:</strong>
+                                                ${location.next_stop}
+                                            </div>
+                                          `
+                                        : ''
+                                }
+
+                                ${
+                                    location.stop_status
+                                        ? `
+                                            <div class="mt-3">
+
+                                                <div
+                                                    class="d-flex align-items-center justify-content-between"
+                                                >
+
+                                                    <span
+                                                        class="text-muted"
+                                                        style="font-size: 12px;"
+                                                    >
+                                                        <i class="bi bi-bus-front me-1"></i>
+                                                        Stop status
+                                                    </span>
+
+                                                    <span
+                                                        class="
+                                                            badge
+                                                            ${
+                                                                location.stop_status === 'ARRIVED'
+                                                                    ? 'bg-success'
+                                                                    : 'bg-secondary'
+                                                            }
+                                                        "
+                                                    >
+                                                        ${
+                                                            location.stop_status === 'ARRIVED'
+                                                                ? 'Arrived'
+                                                                : 'Travelling'
+                                                        }
+                                                    </span>
+
+                                                </div>
+
+                                                ${
+                                                    location.stop_status === 'ARRIVED' &&
+                                                    location.current_stop &&
+                                                    location.stop_arrived_at
+                                                        ? `
+                                                            <div
+                                                                class="mt-2 text-success"
+                                                                style="font-size: 12px;"
+                                                            >
+                                                                <i class="bi bi-geo-alt-fill me-1"></i>
+                                                                Arrived at
+                                                                <strong>
+                                                                    ${location.current_stop}
+                                                                </strong>
+                                                            </div>
+                                                          `
+                                                        : ''
+                                                }
+
+                                                ${
+                                                    location.stop_status === 'TRAVELLING' &&
+                                                    location.next_stop
+                                                        ? `
+                                                            <div
+                                                                class="mt-2 text-muted"
+                                                                style="font-size: 12px;"
+                                                            >
+                                                                <i class="bi bi-arrow-right-circle me-1"></i>
+                                                                Travelling to
+                                                                <strong>
+                                                                    ${location.next_stop}
+                                                                </strong>
+                                                            </div>
+                                                          `
+                                                        : ''
+                                                }
+
+                                            </div>
+                                          `
+                                        : ''
+                                }
+                                <div
+                                    class="
+                                        bus-meta
+                                        mt-2
+                                    "
+                                >
+
+                                    ${statusHtml}
+
+                                    &nbsp;•&nbsp;
+
+                                    ${speedText}
+
+                                </div>
+
+                                ${departureHtml}
+
+                                ${
+                                    location.route_progress !== null &&
+                                    location.route_progress !== undefined &&
+                                    location.route_name
+                                        ? `
+
+                                            <div class="route-progress mt-3">
+
+                                                <!-- ROUTE PROGRESS HEADER -->
+
+                                                <div
+                                                    class="
+                                                        d-flex
+                                                        justify-content-between
+                                                        align-items-center
+                                                        mb-1
+                                                    "
+                                                >
+
+                                                    <span
+                                                        class="text-muted"
+                                                        style="font-size: 12px;"
+                                                    >
+                                                        <i class="bi bi-signpost-2 me-1"></i>
+                                                        Route progress
+                                                    </span>
+
+                                                    <strong
+                                                        style="font-size: 13px;"
+                                                    >
+                                                        ${location.route_progress}%
+                                                    </strong>
+
+                                                </div>
+
+
+                                                <!-- PROGRESS BAR -->
+
+                                                <div
+                                                    class="route-progress-track"
+                                                    style="
+                                                        height: 8px;
+                                                        background: #e9ecef;
+                                                        border-radius: 10px;
+                                                        overflow: hidden;
+                                                    "
+                                                >
+
+                                                    <div
+                                                        class="route-progress-bar"
+                                                        style="
+                                                            width: ${location.route_progress}%;
+                                                            height: 100%;
+                                                            border-radius: 10px;
+                                                            transition: width 0.5s ease;
+                                                        "
+                                                        role="progressbar"
+                                                        aria-valuenow="${location.route_progress}"
+                                                        aria-valuemin="0"
+                                                        aria-valuemax="100"
+                                                    ></div>
+
+                                                </div>
+
+
+                                                <!-- ROUTE ENDPOINTS -->
+
+                                                <div
+                                                    class="
+                                                        d-flex
+                                                        justify-content-between
+                                                        mt-1
+                                                    "
+                                                    style="font-size: 11px;"
+                                                >
+
+                                                    <span>
+                                                        ${
+                                                            location.route_name.split(' - ')[0]
+                                                        }
+                                                    </span>
+
+                                                    <span>
+                                                        ${
+                                                            location.route_name.split(' - ')[1]
+                                                        }
+                                                    </span>
+
+                                                </div>
+
+
+                                                <!-- CURRENT SEGMENT -->
+
+                                                ${
+                                                    location.distance_from_current_km !== null &&
+                                                    location.distance_to_next_km !== null
+                                                        ? `
+
+                                                            <div
+                                                                class="
+                                                                    d-flex
+                                                                    justify-content-between
+                                                                    mt-3
+                                                                "
+                                                                style="font-size: 12px;"
+                                                            >
+
+                                                                <span>
+                                                                    <i
+                                                                        class="
+                                                                            bi
+                                                                            bi-geo-alt
+                                                                            me-1
+                                                                        "
+                                                                    ></i>
+
+                                                                    ${
+                                                                        location.distance_from_current_km
+                                                                    }
+                                                                    km from current stop
+                                                                </span>
+
+                                                                <span>
+                                                                    <i
+                                                                        class="
+                                                                            bi
+                                                                            bi-arrow-right
+                                                                            me-1
+                                                                        "
+                                                                    ></i>
+
+                                                                    ${
+                                                                        location.distance_to_next_km
+                                                                    }
+                                                                    km to next stop
+                                                                </span>
+
+                                                            </div>
+
+                                                          `
+                                                        : ''
+                                                }
+
+                                            </div>
+
+                                          `
+                                        : ''
+                                }
+
+                            </div>
+
+
+                            <!-- LAST UPDATE -->
+
+                            <div
+                                class="
+                                    text-end
+                                    ms-2
+                                "
+                            >
+
+                                <div
+                                    class="last-update"
+                                >
+                                    ${updated.toLocaleTimeString()}
+                                </div>
+
+
+                                ${
+                                    !location.is_tracking
+                                    ? `
+                                        <div
+                                            class="
+                                                text-muted
+                                                mt-1
+                                            "
+                                            style="
+                                                font-size:11px;
+                                            "
+                                        >
+                                            Last known
+                                        </div>
+                                      `
+                                    : ''
+                                }
+
+                            </div>
+
+                        </div>
+
+                        `;
+
+
+                    // ------------------------------------------------
+                    // Click card
+                    // ------------------------------------------------
+
+                    card.addEventListener(
+                        'click',
+                        function () {
+
+                            busFilter.value =
+                                location.bus_id;
+
+
+                            updateMarkers(
+                                currentLocations
+                            );
+
+
+                            renderBusList(
+                                currentLocations
+                            );
+
+
+                            if (
+                                markers[
+                                    location.bus_id
+                                ]
+                            ) {
+
+                                markers[
+                                    location.bus_id
+                                ].openPopup();
+
+                            }
+
+                        }
+                    );
+
+
+                    busListContainer.appendChild(
+                        card
+                    );
+
+                }
+            );
+
+        }
+
+
+        // =========================================================
+        // LOAD LOCATIONS
+        // =========================================================
+
+        function loadLocations() {
+
+            fetch(
+                "{% url 'buses:live_bus_locations' %}"
+            )
+            .then(
+                response => {
+
+                    if (
+                        !response.ok
+                    ) {
+
+                        throw new Error(
+                            'Unable to load bus locations.'
+                        );
+
+                    }
+
+
+                    return response.json();
+
+                }
+            )
+            .then(
+                data => {
+
+                    if (
+                        !data.success
+                    ) {
+
+                        throw new Error(
+                            'Invalid server response.'
+                        );
+
+                    }
+
+
+                    // ----------------------------------------------------
+                    // DETECT NEW DEPARTURE EVENTS
+                    // ----------------------------------------------------
+
+                    data.locations.forEach(
+                        location => {
+
+                            const previousLocation =
+                                currentLocations.find(
+                                    previous =>
+                                        String(previous.bus_id) ===
+                                        String(location.bus_id)
+                                );
+
+                            if (
+                                location.last_departure_at &&
+                                (
+                                    !previousLocation ||
+                                    previousLocation.last_departure_at !==
+                                    location.last_departure_at
+                                )
+                            ) {
+
+                                departureEvents[
+                                    location.bus_id
+                                ] = {
+                                    stop:
+                                        location.last_departure_stop,
+
+                                    expiresAt:
+                                        Date.now() + 15000
+                                };
+
+                            }
+
+                        }
+                    );
+
+
+                    // ----------------------------------------------------
+                    // UPDATE CURRENT LOCATIONS
+                    // ----------------------------------------------------
+
+                    currentLocations =
+                        data.locations;
+
+                    // ------------------------------------------------
+                    // No locations
+                    // ------------------------------------------------
+
+                    if (
+                        currentLocations.length === 0
+                    ) {
+
+                        liveStatus.innerHTML =
+                            `
+                            <i
+                                class="
+                                    bi
+                                    bi-bus-front
+                                    me-1
+                                "
+                            ></i>
+
+                            No bus locations are
+                            currently available.
+                            `;
+
+
+                        busCount.textContent =
+                            '0';
+
+
+                        busListContainer.innerHTML =
+                            `
+                            <div class="text-muted">
+
+                                <i
+                                    class="
+                                        bi
+                                        bi-bus-front
+                                        me-1
+                                    "
+                                ></i>
+
+                                No bus locations available.
+
+                            </div>
+                            `;
+
+
+                        return;
+
+                    }
+
+
+                    // ------------------------------------------------
+                    // Calculate live/stopped counts
+                    // ------------------------------------------------
+
+                    const liveCount =
+                        currentLocations.filter(
+                            location =>
+                                location.is_tracking
+                        ).length;
+
+
+                    const stoppedCount =
+                        currentLocations.filter(
+                            location =>
+                                !location.is_tracking
+                        ).length;
+
+
+                    // ------------------------------------------------
+                    // Status message
+                    // ------------------------------------------------
+
+                    liveStatus.innerHTML =
+                        `
+
+                        <i
+                            class="
+                                bi
+                                bi-broadcast
+                                me-1
+                            "
+                        ></i>
+
+                        <strong>
+                            ${liveCount}
+                        </strong>
+                        Live
+
+                        &nbsp;•&nbsp;
+
+                        <strong>
+                            ${stoppedCount}
+                        </strong>
+                        Tracking stopped
+
+                        `;
+
+
+                    // ------------------------------------------------
+                    // Initialize map
+                    // ------------------------------------------------
+
+                    if (
+                        map === null
+                    ) {
+
+                        initializeMap(
+                            currentLocations[0].latitude,
+                            currentLocations[0].longitude
+                        );
+
+                    }
+
+
+                    // ------------------------------------------------
+                    // Update map
+                    // ------------------------------------------------
+
+                    updateMarkers(
+                        currentLocations
+                    );
+
+
+                    // ------------------------------------------------
+                    // Update bus list
+                    // ------------------------------------------------
+
+                    renderBusList(
+                        currentLocations
+                    );
+
+                    setTimeout(
+                        function () {
+
+                            renderBusList(
+                                currentLocations
+                            );
+
+                        },
+                        5100
+                    );
+                }
+            )
+            .catch(
+                error => {
+
+                    console.error(
+                        error
+                    );
+
+
+                    liveStatus.innerHTML =
+                        `
+                        <i
+                            class="
+                                bi
+                                bi-exclamation-triangle
+                                me-1
+                            "
+                        ></i>
+
+                        Unable to load live
+                        bus locations.
+                        `;
+
+                }
+            );
+
+        }
+
+
+        // =========================================================
+        // FILTER CHANGE
+        // =========================================================
+
+        busFilter.addEventListener(
+            'change',
+            function () {
+
+                updateMarkers(
+                    currentLocations
+                );
+
+
+                renderBusList(
+                    currentLocations
+                );
+
+            }
+        );
+
+
+        // =========================================================
+        // FIRST LOAD
+        // =========================================================
+
+        loadLocations();
+
+
+        // =========================================================
+        // REFRESH EVERY 5 SECONDS
+        // =========================================================
+
+        setInterval(
+            loadLocations,
+            5000
+        );
+
+    }
+
+);
+
+</script>
+
+
+{% endblock %}

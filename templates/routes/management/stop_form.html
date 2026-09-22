@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="container py-5">
+
+    <div class="row justify-content-center">
+
+        <div class="col-lg-6">
+
+            <div class="card border-0 shadow-sm rounded-4">
+
+                <div class="card-body p-4 p-md-5">
+
+                    <!-- PAGE HEADER -->
+
+                    <div class="mb-4">
+
+                        <a
+                            href="{% url 'routes:manage_route_stops' route.id %}"
+                            class="text-decoration-none text-muted">
+
+                            <i class="bi bi-arrow-left me-1"></i>
+                            Manage Stops
+
+                        </a>
+
+
+                        <h3 class="fw-bold mt-3 mb-1">
+                            {{ title }}
+                        </h3>
+
+
+                        <p class="text-muted mb-0">
+                            {{ route.route_name }}
+                        </p>
+
+                    </div>
+
+
+                    <!-- FORM -->
+
+                    <form method="post">
+
+                        {% csrf_token %}
+
+
+                        <!-- NON-FIELD ERRORS -->
+
+                        {% if form.non_field_errors %}
+
+                            <div class="alert alert-danger">
+
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+
+                                {{ form.non_field_errors }}
+
+                            </div>
+
+                        {% endif %}
+
+
+                        <!-- FORM FIELDS -->
+
+                        {% for field in form %}
+
+                            <div class="mb-3">
+
+                                <label
+                                    for="{{ field.id_for_label }}"
+                                    class="form-label fw-semibold">
+
+                                    {{ field.label }}
+
+                                </label>
+
+
+                                {% if field.name == "travel_time_minutes" %}
+
+                                    <div class="input-group">
+
+                                        {{ field }}
+
+                                        <span class="input-group-text">
+                                            minutes
+                                        </span>
+
+                                    </div>
+
+
+                                    <div class="form-text">
+
+                                        Approximate travel time from the
+                                        previous stop.
+
+                                    </div>
+
+                                {% else %}
+
+                                    {{ field }}
+
+                                    {% if field.help_text %}
+
+                                        <div class="form-text">
+                                            {{ field.help_text }}
+                                        </div>
+
+                                    {% endif %}
+
+                                {% endif %}
+
+
+                                <!-- FIELD ERRORS -->
+
+                                {% for error in field.errors %}
+
+                                    <div class="text-danger small mt-1">
+
+                                        <i class="bi bi-exclamation-circle me-1"></i>
+
+                                        {{ error }}
+
+                                    </div>
+
+                                {% endfor %}
+
+                            </div>
+
+                        {% endfor %}
+
+
+                        <!-- BUTTONS -->
+
+                        <div class="d-flex justify-content-between mt-4">
+
+                            <a
+                                href="{% url 'routes:manage_route_stops' route.id %}"
+                                class="btn btn-light px-4">
+
+                                <i class="bi bi-x-lg me-1"></i>
+
+                                Cancel
+
+                            </a>
+
+
+                            <button
+                                type="submit"
+                                class="btn btn-primary px-4">
+
+                                <i class="bi bi-check-lg me-1"></i>
+
+                                {{ button_text }}
+
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

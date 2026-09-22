@@ -1,0 +1,697 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+<title>Bus Route Finder</title>
+{% endblock %}
+
+{% block content %}
+
+<!-- Autoroad homepage content will go here -->
+
+{% if messages %}
+
+    {% for message in messages %}
+
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+
+    {% endfor %}
+
+{% endif %}
+
+<!-- HERO SECTION -->
+<section class="hero-wrap hero-wrap-2 js-fullheight"
+         style="background-image: url('{% static 'images/bg_1.jpg' %}');"
+         data-stellar-background-ratio="0.5">
+
+    <div class="overlay"></div>
+
+    <div class="container">
+
+        <div class="row no-gutters slider-text js-fullheight align-items-center">
+
+            <div class="col-md-7 ftco-animate">
+
+                <span class="subheading">
+                    Welcome to Bus Route Finder
+                </span>
+
+                <h1 class="mb-4 font-weight-bold">
+                    Find the Right Bus for Your Journey
+                </h1>
+
+                <p class="mb-4 font-weight-bold">
+                    Search bus routes, stops, timings and fares
+                    quickly and easily.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- BUS SEARCH -->
+<section class="ftco-section ftco-no-pb ftco-no-pt">
+
+    <div class="container">
+
+        <div class="row">
+
+            <div class="col-md-12">
+
+                <div class="search-wrap-1 ftco-animate mb-5">
+
+                    <form action="{% url 'routes:route_search' %}"
+                          method="get"
+                          class="search-property-1">
+
+                        <div class="row g-3">
+
+                            <div class="col-md-4">
+
+                                <div class="form-group">
+
+                                    <label class="form-label">
+                                        Source
+                                    </label>
+
+                                    <input type="text"
+                                           name="source"
+                                           class="form-control"
+                                           placeholder="Enter source">
+
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-4">
+
+                                <div class="form-group">
+
+                                    <label class="form-label">
+                                        Destination
+                                    </label>
+
+                                    <input type="text"
+                                           name="destination"
+                                           class="form-control"
+                                           placeholder="Enter destination">
+
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-2">
+
+                                <div class="form-group">
+
+                                    <label class="form-label">
+                                        Travel Date
+                                    </label>
+
+                                    <input type="date"
+                                           name="travel_date"
+                                           class="form-control">
+
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-2 d-flex align-items-end">
+
+                                <div class="form-group w-100">
+
+                                    <button type="submit"
+                                            class="btn btn-primary w-100">
+
+                                        Search Bus
+
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- SERVICES -->
+<section class="ftco-section services-section ftco-no-pt ftco-no-pb">
+
+    <div class="container">
+
+        <div class="row justify-content-center">
+
+            <div class="col-md-12 heading-section text-center ftco-animate mb-5">
+
+                <span class="subheading">
+                    What We Offer
+                </span>
+
+                <h2 class="mb-2">
+                    Our Services
+                </h2>
+
+            </div>
+
+        </div>
+
+        <div class="row">
+
+            <div class="col-md-3">
+                <div class="services text-center">
+
+                    <div class="icon d-flex justify-content-center align-items-center">
+                        <span class="flaticon-route"></span>
+                    </div>
+
+                    <div class="text">
+                        <h3>Find Bus Routes</h3>
+
+                        <p>
+                            Search for suitable buses between
+                            your source and destination.
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+
+
+            <div class="col-md-3">
+                <div class="services text-center">
+
+                    <div class="icon d-flex justify-content-center align-items-center">
+                        <span class="flaticon-clock"></span>
+                    </div>
+
+                    <div class="text">
+                        <h3>Bus Timings</h3>
+
+                        <p>
+                            Check available buses and
+                            approximate departure timings.
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+
+
+            <div class="col-md-3">
+                <div class="services text-center">
+
+                    <div class="icon d-flex justify-content-center align-items-center">
+                        <span class="flaticon-map"></span>
+                    </div>
+
+                    <div class="text">
+                        <h3>Bus Stops</h3>
+
+                        <p>
+                            Find the stops covered by
+                            different bus routes.
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+
+
+            <div class="col-md-3">
+                <div class="services text-center">
+
+                    <div class="icon d-flex justify-content-center align-items-center">
+                        <span class="flaticon-money"></span>
+                    </div>
+
+                    <div class="text">
+                        <h3>Fare Information</h3>
+
+                        <p>
+                            View approximate fares for
+                            your selected bus route.
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- POPULAR BUS ROUTES -->
+<section class="ftco-section">
+
+    <div class="container-fluid px-4">
+
+        <!-- Section Heading -->
+        <div class="row justify-content-center">
+
+            <div class="col-md-12 heading-section text-center ftco-animate mb-5">
+
+                <span class="subheading">
+                    Explore Bus Routes
+                </span>
+
+                <h2 class="mb-2">
+                    Popular Bus Routes
+                </h2>
+
+                <p>
+                    Find popular bus routes and get information about
+                    stops, timings and fares.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- Route Cards -->
+        <div class="row">
+
+
+            <!-- Route 1 -->
+            <div class="col-lg-3 col-md-6 mb-4">
+
+                <div class="car-wrap ftco-animate">
+
+                    <div class="img d-flex align-items-end"
+                         style="background-image: url('{% static 'images/car-1.jpg' %}');">
+
+                        <div class="price-wrap d-flex">
+
+                            <span class="rate">
+                                ₹25
+                            </span>
+
+                            <p class="from-day">
+                                <span>Approx.</span>
+                                <span>Fare</span>
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="text p-4 text-center">
+
+                        <h2 class="mb-2">
+                            <a href="#">
+                                Kochi to Aluva
+                            </a>
+                        </h2>
+
+                        <span>
+                            Via Edappally
+                        </span>
+
+                        <p class="mt-3 mb-3">
+                            Frequent buses available throughout
+                            the day.
+                        </p>
+
+                        <p class="d-flex mb-0 d-block">
+
+                            <a href="#"
+                               class="btn btn-black btn-outline-black me-1">
+                                View Route
+                            </a>
+
+                            <a href="#"
+                               class="btn btn-black btn-outline-black ms-1">
+                                Timings
+                            </a>
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Route 2 -->
+            <div class="col-lg-3 col-md-6 mb-4">
+
+                <div class="car-wrap ftco-animate">
+
+                    <div class="img d-flex align-items-end"
+                         style="background-image: url('{% static 'images/car-2.jpg' %}');">
+
+                        <div class="price-wrap d-flex">
+
+                            <span class="rate">
+                                ₹30
+                            </span>
+
+                            <p class="from-day">
+                                <span>Approx.</span>
+                                <span>Fare</span>
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="text p-4 text-center">
+
+                        <h2 class="mb-2">
+                            <a href="#">
+                                Aluva to Kakkanad
+                            </a>
+                        </h2>
+
+                        <span>
+                            Via Edappally
+                        </span>
+
+                        <p class="mt-3 mb-3">
+                            Convenient route for students
+                            and daily commuters.
+                        </p>
+
+                        <p class="d-flex mb-0 d-block">
+
+                            <a href="#"
+                               class="btn btn-black btn-outline-black me-1">
+                                View Route
+                            </a>
+
+                            <a href="#"
+                               class="btn btn-black btn-outline-black ms-1">
+                                Timings
+                            </a>
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Route 3 -->
+            <div class="col-lg-3 col-md-6 mb-4">
+
+                <div class="car-wrap ftco-animate">
+
+                    <div class="img d-flex align-items-end"
+                         style="background-image: url('{% static 'images/car-3.jpg' %}');">
+
+                        <div class="price-wrap d-flex">
+
+                            <span class="rate">
+                                ₹35
+                            </span>
+
+                            <p class="from-day">
+                                <span>Approx.</span>
+                                <span>Fare</span>
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="text p-4 text-center">
+
+                        <h2 class="mb-2">
+                            <a href="#">
+                                Ernakulam to Tripunithura
+                            </a>
+                        </h2>
+
+                        <span>
+                            Via Vyttila
+                        </span>
+
+                        <p class="mt-3 mb-3">
+                            Popular route connecting major
+                            city areas.
+                        </p>
+
+                        <p class="d-flex mb-0 d-block">
+
+                            <a href="#"
+                               class="btn btn-black btn-outline-black me-1">
+                                View Route
+                            </a>
+
+                            <a href="#"
+                               class="btn btn-black btn-outline-black ms-1">
+                                Timings
+                            </a>
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Route 4 -->
+            <div class="col-lg-3 col-md-6 mb-4">
+
+                <div class="car-wrap ftco-animate">
+
+                    <div class="img d-flex align-items-end"
+                         style="background-image: url('{% static 'images/car-4.jpg' %}');">
+
+                        <div class="price-wrap d-flex">
+
+                            <span class="rate">
+                                ₹40
+                            </span>
+
+                            <p class="from-day">
+                                <span>Approx.</span>
+                                <span>Fare</span>
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="text p-4 text-center">
+
+                        <h2 class="mb-2">
+                            <a href="#">
+                                Kochi to Fort Kochi
+                            </a>
+                        </h2>
+
+                        <span>
+                            Via Mattancherry
+                        </span>
+
+                        <p class="mt-3 mb-3">
+                            A popular route for commuters
+                            and visitors.
+                        </p>
+
+                        <p class="d-flex mb-0 d-block">
+
+                            <a href="#"
+                               class="btn btn-black btn-outline-black me-1">
+                                View Route
+                            </a>
+
+                            <a href="#"
+                               class="btn btn-black btn-outline-black ms-1">
+                                Timings
+                            </a>
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- View All Routes -->
+        <div class="row justify-content-center mt-4">
+
+            <div class="col-md-12 text-center">
+
+                <a href="{% url 'routes:routes' %}"
+                   class="btn btn-primary py-3 px-5">
+
+                    View All Routes
+
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="ftco-section ftco-no-pt">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-12 heading-section text-center ftco-animate mb-5">
+                <span class="subheading">Simple & Easy</span>
+                <h2 class="mb-2">How It Works</h2>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Step 1 -->
+            <div class="col-md-3 d-flex align-items-stretch ftco-animate">
+                <div class="services text-center">
+                    <div class="icon d-flex justify-content-center align-items-center">
+                        <span class="flaticon-route"></span>
+                    </div>
+                    <div class="text">
+                        <h3>Enter Your Location</h3>
+                        <p>
+                            Enter your starting point and destination
+                            to find suitable bus routes.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="col-md-3 d-flex align-items-stretch ftco-animate">
+                <div class="services text-center">
+                    <div class="icon d-flex justify-content-center align-items-center">
+                        <span class="flaticon-search"></span>
+                    </div>
+                    <div class="text">
+                        <h3>Search Buses</h3>
+                        <p>
+                            Search for buses available between your
+                            source and destination.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="col-md-3 d-flex align-items-stretch ftco-animate">
+                <div class="services text-center">
+                    <div class="icon d-flex justify-content-center align-items-center">
+                        <span class="flaticon-road"></span>
+                    </div>
+                    <div class="text">
+                        <h3>Compare Routes</h3>
+                        <p>
+                            Compare available routes, stops, timings
+                            and approximate fares.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="col-md-3 d-flex align-items-stretch ftco-animate">
+                <div class="services text-center">
+                    <div class="icon d-flex justify-content-center align-items-center">
+                        <span class="flaticon-taxi"></span>
+                    </div>
+                    <div class="text">
+                        <h3>Choose Your Bus</h3>
+                        <p>
+                            Select the most convenient bus route
+                            for your journey.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ABOUT BUS ROUTE FINDER -->
+<section class="ftco-section ftco-about">
+    <div class="container">
+        <div class="row no-gutters">
+
+            <!-- Image -->
+            <div class="col-md-6 p-md-5 img img-2 d-flex justify-content-center align-items-center"
+                 style="background-image: url('{% static "images/about.jpg" %}');">
+            </div>
+
+            <!-- Content -->
+            <div class="col-md-6 wrap-about py-md-5 ftco-animate">
+                <div class="heading-section mb-4">
+                    <span class="subheading">About Us</span>
+                    <h2 class="mb-4">Bus Route Finder</h2>
+                </div>
+
+                <div class="pl-md-5">
+                    <p>
+                        Bus Route Finder is a web-based platform designed
+                        to help passengers easily find suitable bus routes
+                        between their source and destination.
+                    </p>
+
+                    <p>
+                        The system provides useful information about buses,
+                        bus stops, routes, approximate timings and fares,
+                        making public transportation easier to understand
+                        and use.
+                    </p>
+
+                    <p>
+                        Whether you are a student, daily commuter or
+                        travelling to an unfamiliar place, Bus Route Finder
+                        helps you find the information you need before
+                        starting your journey.
+                    </p>
+
+                    <p>
+                        Our goal is to make public bus information simple,
+                        accessible and convenient for everyone.
+                    </p>
+
+                    <p class="mt-4">
+                        <a href="{% url 'routes:routes' %}"
+                           class="btn btn-primary py-3 px-4">
+                            Explore Bus Routes
+                        </a>
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+{% endblock %}

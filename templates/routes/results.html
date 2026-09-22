@@ -1,0 +1,1279 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<style>
+
+    /* =========================================================
+       RESULTS PAGE
+    ========================================================= */
+
+    .results-page {
+        min-height: calc(100vh - 80px);
+        background: #f5f7fb;
+        padding: 45px 0 70px;
+    }
+
+    /* =========================================================
+       SEARCH SUMMARY
+    ========================================================= */
+
+    .search-summary {
+        background: #ffffff;
+        border-radius: 22px;
+        padding: 28px 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+        border: 1px solid #edf0f5;
+    }
+
+    .search-summary-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 15px;
+        background: rgba(13, 110, 253, 0.10);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #0d6efd;
+        font-size: 1.35rem;
+        flex-shrink: 0;
+    }
+
+    .search-summary h2 {
+        font-size: 1.55rem;
+        font-weight: 700;
+        margin-bottom: 4px;
+        color: #212529;
+    }
+
+    .search-summary-subtitle {
+        color: #6c757d;
+        font-size: 0.92rem;
+    }
+
+    .search-route {
+        margin-top: 22px;
+        padding: 18px 20px;
+        background: #f8f9fc;
+        border-radius: 16px;
+        border: 1px solid #edf0f5;
+    }
+
+    .search-location {
+        font-weight: 600;
+        color: #212529;
+    }
+
+    .search-location i {
+        color: #0d6efd;
+    }
+
+    .route-arrow {
+        color: #adb5bd;
+        margin: 0 14px;
+    }
+
+    .result-count {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 18px;
+        padding: 7px 13px;
+        border-radius: 50px;
+        background: #eef5ff;
+        color: #0d6efd;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .travel-date-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 18px;
+        margin-left: 8px;
+        padding: 7px 13px;
+        border-radius: 50px;
+        background: #f1f3f5;
+        color: #495057;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    /* =========================================================
+       RESULT CARD
+    ========================================================= */
+
+    .result-card {
+        background: #ffffff;
+        border-radius: 22px;
+        overflow: hidden;
+        margin-bottom: 28px;
+        border: 1px solid #e9edf3;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.055);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .result-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 38px rgba(0, 0, 0, 0.09);
+    }
+
+    /* =========================================================
+       RESULT HEADER
+    ========================================================= */
+
+    .result-card-header {
+        padding: 24px 26px;
+        background: linear-gradient(
+            135deg,
+            #ffffff 0%,
+            #f8faff 100%
+        );
+        border-bottom: 1px solid #edf0f5;
+    }
+
+    .bus-icon {
+        width: 55px;
+        height: 55px;
+        border-radius: 16px;
+        background: #eaf3ff;
+        color: #0d6efd;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.55rem;
+        flex-shrink: 0;
+    }
+
+    .bus-number {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #212529;
+    }
+
+    .bus-name {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-top: 2px;
+    }
+
+    .bus-type-badge {
+        display: inline-block;
+        padding: 6px 11px;
+        border-radius: 50px;
+        background: #f1f3f5;
+        color: #495057;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .route-title {
+        margin-top: 20px;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #212529;
+    }
+
+    .route-title i {
+        color: #0d6efd;
+        margin-right: 7px;
+    }
+
+    /* =========================================================
+       RESULT BODY
+    ========================================================= */
+
+    .result-card-body {
+        padding: 28px 26px;
+    }
+
+    /* =========================================================
+       SOURCE / DESTINATION
+    ========================================================= */
+
+    .journey-summary {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 25px;
+    }
+
+    .journey-point {
+        flex: 1;
+        padding: 15px 17px;
+        background: #f8f9fa;
+        border-radius: 15px;
+        border: 1px solid #edf0f3;
+    }
+
+    .journey-label {
+        display: block;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #868e96;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .journey-name {
+        font-size: 0.98rem;
+        font-weight: 600;
+        color: #212529;
+    }
+
+    .journey-arrow {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: #eaf3ff;
+        color: #0d6efd;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    /* =========================================================
+       ROUTE TIMELINE
+    ========================================================= */
+
+    .section-heading {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #212529;
+        margin-bottom: 17px;
+    }
+
+    .section-heading i {
+        color: #0d6efd;
+    }
+
+    .route-timeline {
+        position: relative;
+        padding-left: 8px;
+        margin-bottom: 30px;
+    }
+
+    .route-timeline::before {
+        content: "";
+        position: absolute;
+        left: 15px;
+        top: 14px;
+        bottom: 14px;
+        width: 2px;
+        background: #dbe5f2;
+    }
+
+    /* Schedule-specific stop timeline */
+    .route-line {
+        position: relative;
+        padding-left: 8px;
+        margin-bottom: 10px;
+    }
+
+    .route-line::before {
+        content: "";
+        position: absolute;
+        left: 15px;
+        top: 14px;
+        bottom: 14px;
+        width: 2px;
+        background: #dbe5f2;
+    }
+
+
+    .stop-item {
+        position: relative;
+        display: flex;
+        align-items: flex-start;
+        gap: 17px;
+        padding: 9px 0;
+    }
+
+    .stop-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #ffffff;
+        border: 3px solid #0d6efd;
+        position: relative;
+        z-index: 2;
+        flex-shrink: 0;
+        margin-top: 3px;
+    }
+
+    .stop-item.start .stop-dot {
+        background: #0d6efd;
+    }
+
+    .stop-item.end .stop-dot {
+        background: #212529;
+        border-color: #212529;
+    }
+
+    .stop-content {
+        min-width: 0;
+    }
+
+    .stop-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: #0d6efd;
+        margin-bottom: 2px;
+    }
+
+    .stop-item.end .stop-label {
+        color: #495057;
+    }
+
+    .stop-name {
+        font-size: 0.94rem;
+        font-weight: 600;
+        color: #343a40;
+    }
+
+    .stop-time {
+        font-size: 0.86rem;
+        font-weight: 700;
+        color: #0d6efd;
+        margin-bottom: 2px;
+    }
+
+    .stop-travel-time {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 5px;
+        padding: 4px 9px;
+        border-radius: 20px;
+        background: #f1f5f9;
+        color: #6c757d;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .stop-travel-time i {
+        color: #0d6efd;
+    }
+
+    .segment-time {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 4px 0 10px 28px;
+        color: #6c757d;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .segment-time i {
+        color: #0d6efd;
+        font-size: 13px;
+    }
+
+    .segment-time span {
+        background: #e7f1ff;
+        color: #0d6efd;
+        padding: 4px 9px;
+        border-radius: 20px;
+    }
+
+    /* =========================================================
+       ROUTE STATS
+    ========================================================= */
+
+    .route-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+        margin-bottom: 30px;
+    }
+
+    .stat-box {
+        padding: 17px;
+        border-radius: 16px;
+        background: #f8f9fc;
+        border: 1px solid #edf0f5;
+    }
+
+    .stat-icon {
+        color: #0d6efd;
+        font-size: 1.1rem;
+        margin-bottom: 7px;
+    }
+
+    .stat-label {
+        display: block;
+        font-size: 0.75rem;
+        color: #868e96;
+        margin-bottom: 3px;
+    }
+
+    .stat-value {
+        font-size: 0.98rem;
+        font-weight: 700;
+        color: #212529;
+    }
+
+    /* =========================================================
+       SCHEDULE SECTION
+    ========================================================= */
+
+    .schedule-section {
+        border-top: 1px solid #edf0f5;
+        padding-top: 25px;
+        margin-top: 5px;
+    }
+
+    .schedule-heading-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+        margin-bottom: 17px;
+    }
+
+    .schedule-heading {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #212529;
+        margin: 0;
+    }
+
+    .schedule-heading i {
+        color: #0d6efd;
+    }
+
+    .schedule-day {
+        padding: 5px 10px;
+        border-radius: 50px;
+        background: #eef5ff;
+        color: #0d6efd;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .schedule-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+    }
+
+    .schedule-card {
+        background: #f8faff;
+        border: 1px solid #e5edf8;
+        border-radius: 17px;
+        padding: 18px;
+        transition: all 0.2s ease;
+    }
+
+    .schedule-card:hover {
+        border-color: #b9d4f7;
+        background: #f5f9ff;
+    }
+
+    .schedule-card-day {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 14px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: #0d6efd;
+    }
+
+    .schedule-times {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .time-label {
+        display: block;
+        color: #868e96;
+        font-size: 0.7rem;
+        margin-bottom: 3px;
+    }
+
+    .time-value {
+        font-size: 1.02rem;
+        font-weight: 700;
+        color: #212529;
+    }
+
+    .time-arrow {
+        color: #adb5bd;
+        font-size: 1rem;
+    }
+
+    .no-schedule {
+        padding: 20px;
+        border-radius: 16px;
+        background: #f8f9fa;
+        border: 1px dashed #ced4da;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .no-schedule i {
+        color: #868e96;
+    }
+
+    /* =========================================================
+       OPERATOR
+    ========================================================= */
+
+    .operator-info {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-top: 22px;
+        padding-top: 18px;
+        border-top: 1px solid #edf0f5;
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+
+    .operator-info i {
+        color: #0d6efd;
+    }
+
+    .operator-name {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    /* =========================================================
+       ACTIONS
+    ========================================================= */
+
+    .result-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 20px 26px;
+        background: #fafbfc;
+        border-top: 1px solid #edf0f5;
+    }
+
+    .btn-route {
+        border-radius: 11px;
+        padding: 9px 16px;
+        font-weight: 600;
+        font-size: 0.88rem;
+    }
+
+    .btn-view-route {
+        border-radius: 11px;
+        padding: 9px 18px;
+        font-weight: 600;
+        font-size: 0.88rem;
+    }
+
+    /* =========================================================
+       NO RESULTS
+    ========================================================= */
+
+    .no-results {
+        background: #ffffff;
+        border-radius: 22px;
+        padding: 55px 25px;
+        text-align: center;
+        border: 1px solid #e9edf3;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+    }
+
+    .no-results-icon {
+        width: 75px;
+        height: 75px;
+        border-radius: 50%;
+        background: #f1f3f5;
+        color: #868e96;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        margin: 0 auto 20px;
+    }
+
+    .no-results h3 {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #212529;
+        margin-bottom: 9px;
+    }
+
+    .no-results p {
+        max-width: 500px;
+        margin: 0 auto 24px;
+        color: #6c757d;
+        line-height: 1.6;
+    }
+
+    /* =========================================================
+       RESPONSIVE
+    ========================================================= */
+
+    @media (max-width: 991px) {
+
+        .schedule-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+    }
+
+    @media (max-width: 767px) {
+
+        .results-page {
+            padding: 25px 0 50px;
+        }
+
+        .search-summary {
+            padding: 22px;
+            border-radius: 18px;
+        }
+
+        .result-card-header,
+        .result-card-body {
+            padding: 22px;
+        }
+
+        .result-actions {
+            padding: 18px 22px;
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .result-actions .btn {
+            width: 100%;
+        }
+
+        .journey-summary {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .journey-arrow {
+            transform: rotate(90deg);
+            margin: 0 auto;
+        }
+
+        .schedule-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .route-stats {
+            grid-template-columns: 1fr;
+        }
+
+        .schedule-card {
+            padding: 16px;
+        }
+
+        .route-line {
+            padding-left: 4px;
+        }
+
+        .travel-date-badge {
+            margin-left: 0;
+        }
+
+        .search-route {
+            padding: 15px;
+        }
+
+    }
+
+</style>
+
+
+<section class="results-page">
+
+    <div class="container">
+
+        <!-- =====================================================
+             SEARCH SUMMARY
+        ====================================================== -->
+
+        <div class="search-summary">
+
+            <div class="d-flex align-items-center gap-3">
+
+                <div class="search-summary-icon">
+                    <i class="bi bi-search"></i>
+                </div>
+
+                <div>
+
+                    <h2>
+                        Bus Search Results
+                    </h2>
+
+                    <div class="search-summary-subtitle">
+                        Available routes matching your search
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="search-route">
+
+                <div class="d-flex align-items-center flex-wrap">
+
+                    <div class="search-location">
+                        <i class="bi bi-geo-alt-fill me-1"></i>
+
+                        {% if source %}
+                            {{ source }}
+                        {% else %}
+                            Source
+                        {% endif %}
+
+                    </div>
+
+                    <div class="route-arrow">
+                        <i class="bi bi-arrow-right"></i>
+                    </div>
+
+                    <div class="search-location">
+                        <i class="bi bi-geo-alt-fill me-1"></i>
+
+                        {% if destination %}
+                            {{ destination }}
+                        {% else %}
+                            Destination
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            {% if routes %}
+
+                <span class="result-count">
+                    <i class="bi bi-check-circle-fill"></i>
+
+                    {{ routes|length }}
+                    route{{ routes|length|pluralize }} found
+                </span>
+
+            {% endif %}
+
+
+            {% if travel_date %}
+
+                <span class="travel-date-badge">
+                    <i class="bi bi-calendar3"></i>
+                    {{ travel_date }}
+                </span>
+
+            {% endif %}
+
+            {% if departure_time %}
+                <span class="travel-date-badge">
+                    <i class="bi bi-clock"></i>
+                    Departure after {{ departure_time }}
+                </span>
+            {% endif %}
+
+        </div>
+
+
+        <!-- =====================================================
+             ROUTE RESULTS
+        ====================================================== -->
+
+        {% if routes %}
+
+            {% for route in routes %}
+
+                <div class="result-card">
+
+                    <!-- =================================================
+                         BUS HEADER
+                    ================================================== -->
+
+                    <div class="result-card-header">
+
+                        <div class="d-flex align-items-center justify-content-between gap-3">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="bus-icon">
+                                    <i class="bi bi-bus-front-fill"></i>
+                                </div>
+
+                                <div>
+
+                                    <div class="bus-number">
+                                        {{ route.bus.bus_number }}
+                                    </div>
+
+                                    <div class="bus-name">
+                                        {{ route.bus.bus_name }}
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+
+                            {% if route.bus.bus_type %}
+
+                                <span class="bus-type-badge">
+                                    {{ route.bus.get_bus_type_display }}
+                                </span>
+
+                            {% endif %}
+
+                        </div>
+
+
+                        <div class="route-title">
+
+                            <i class="bi bi-signpost-2"></i>
+
+                            {{ route.route_name }}
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- =================================================
+                         RESULT BODY
+                    ================================================== -->
+
+                    <div class="result-card-body">
+
+
+                        <!-- JOURNEY SOURCE / DESTINATION -->
+
+                        <div class="journey-summary">
+
+                            <div class="journey-point">
+
+                                <span class="journey-label">
+                                    From
+                                </span>
+
+                                <div class="journey-name">
+
+                                    {% if route.search_source %}
+                                        {{ route.search_source.name }}
+                                    {% else %}
+                                        {{ source }}
+                                    {% endif %}
+
+                                </div>
+
+                            </div>
+
+
+                            <div class="journey-arrow">
+                                <i class="bi bi-arrow-right"></i>
+                            </div>
+
+
+                            <div class="journey-point">
+
+                                <span class="journey-label">
+                                    To
+                                </span>
+
+                                <div class="journey-name">
+
+                                    {% if route.search_destination %}
+                                        {{ route.search_destination.name }}
+                                    {% else %}
+                                        {{ destination }}
+                                    {% endif %}
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- =================================================
+                             ROUTE STATISTICS
+                        ================================================== -->
+
+                        <div class="route-stats">
+
+                            <div class="stat-box">
+
+                                <div class="stat-icon">
+                                    <i class="bi bi-clock"></i>
+                                </div>
+
+                                <span class="stat-label">
+                                    Estimated Duration
+                                </span>
+
+                                <div class="info-item">
+                                    <i class="bi bi-clock"></i>
+                                    <strong>
+                                        {{ route.search_duration_display }}
+                                    </strong>
+                                    estimated
+                                </div>
+
+                            </div>
+
+
+                            <div class="stat-box">
+
+                                <div class="stat-icon">
+                                    <i class="bi bi-signpost"></i>
+                                </div>
+
+                                <span class="stat-label">
+                                    Stops
+                                </span>
+
+                                <div class="stat-value">
+                                    {{ route.stops_between|length }}
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- =================================================
+                             BUS SCHEDULE
+                        ================================================== -->
+
+                        <div class="schedule-section">
+
+                            <div class="schedule-heading-row">
+
+                                <h6 class="schedule-heading">
+
+                                    <i class="bi bi-clock-history"></i>
+
+                                    Bus Schedule
+
+                                </h6>
+
+                                {% if travel_date %}
+
+                                    <span class="schedule-day">
+                                        Selected Day
+                                    </span>
+
+                                {% endif %}
+
+                            </div>
+
+
+                            {% if route.search_schedules %}
+
+                                <div class="schedule-grid">
+
+                                    <!-- =================================================
+                                         SCHEDULE
+                                    ================================================== -->
+
+                                    {% for schedule in route.search_schedules %}
+
+                                        <div class="schedule-card">
+
+                                            <!-- SCHEDULE HEADER -->
+
+                                            <div class="schedule-header">
+
+                                                <div>
+                                                    <span class="text-muted small">
+                                                        Departure
+                                                    </span>
+
+                                                    <h5 class="fw-bold mb-0">
+                                                        {{ schedule.search_departure_time|time:"g:i A" }}
+                                                    </h5>
+                                                </div>
+
+                                                <div class="text-end">
+
+                                                    <span class="text-muted small">
+                                                        Arrival
+                                                    </span>
+
+                                                    <h5 class="fw-bold mb-0">
+                                                        {{ schedule.search_arrival_time|time:"g:i A" }}
+                                                    </h5>
+
+                                                </div>
+
+                                            </div>
+
+
+                                            <!-- =================================================
+                                                 ROUTE STOPS
+                                            ================================================== -->
+
+                                            <div class="section-heading mt-4">
+
+                                                <i class="bi bi-signpost-split"></i>
+
+                                                <span>
+                                                    Stops Along the Route
+                                                </span>
+
+                                            </div>
+
+
+                                            <!-- STOPS TIMELINE -->
+
+                                            <div class="route-line">
+
+                                                {% for item in schedule.search_stops %}
+
+                                                    <div class="stop-item
+                                                        {% if forloop.first %}start{% endif %}
+                                                        {% if forloop.last %}end{% endif %}
+                                                    ">
+
+                                                        <div class="stop-dot"></div>
+
+                                                        <div class="stop-content">
+
+                                                            <!-- STOP TIME -->
+
+                                                            <div class="stop-time fw-bold">
+                                                                {{ item.time|time:"g:i A" }}
+                                                            </div>
+
+
+                                                            <!-- START / DESTINATION LABEL -->
+
+                                                            {% if forloop.first %}
+
+                                                                <div class="stop-label">
+                                                                    Starting Point
+                                                                </div>
+
+                                                            {% elif forloop.last %}
+
+                                                                <div class="stop-label">
+                                                                    Destination
+                                                                </div>
+
+                                                            {% endif %}
+
+
+                                                            <!-- STOP NAME -->
+
+                                                            <div class="stop-name">
+                                                                {{ item.route_stop.stop.name }}
+                                                            </div>
+
+
+                                                            <!-- TRAVEL TIME -->
+
+                                                            {% if not forloop.first %}
+
+                                                                <div class="stop-travel-time">
+
+                                                                    <i class="bi bi-clock me-1"></i>
+
+                                                                    {{ item.travel_time }} min
+                                                                    from previous stop
+
+                                                                </div>
+
+                                                            {% endif %}
+
+                                                        </div>
+
+                                                    </div>
+
+                                                {% endfor %}
+
+                                            </div>
+
+                                        </div>
+
+                                    {% endfor %}
+                                </div>
+
+                            {% else %}
+
+                                <div class="no-schedule">
+
+                                    <i class="bi bi-info-circle me-2"></i>
+
+                                    {% if travel_date %}
+
+                                        No active buses are scheduled for this route on the selected day.
+
+                                    {% else %}
+
+                                        No active bus schedules are currently available for this route.
+
+                                    {% endif %}
+
+                                </div>
+
+                            {% endif %}
+
+                        </div>
+
+
+                        <!-- =================================================
+                             OPERATOR
+                        ================================================== -->
+
+                        {% if route.bus.operator %}
+
+                            <div class="operator-info">
+
+                                <i class="bi bi-building"></i>
+
+                                <span>
+                                    Operator:
+                                </span>
+
+                                <span class="operator-name">
+                                    {{ route.bus.operator }}
+                                </span>
+
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- =================================================
+                         ACTIONS
+                    ================================================== -->
+
+                    <div class="result-actions">
+
+                        <form action="{% url 'routes:route_search' %}"
+                              method="get"
+                              class="d-inline">
+
+                            <input type="hidden"
+                                   name="source"
+                                   value="{{ source }}">
+
+                            <input type="hidden"
+                                   name="destination"
+                                   value="{{ destination }}">
+
+                            <input type="hidden"
+                                   name="travel_date"
+                                   value="{{ travel_date }}">
+
+                            <input type="hidden"
+                                   name="departure_time"
+                                   value="{{ departure_time }}">
+
+                            <input type="hidden"
+                                   name="departure_filter"
+                                   value="{{ departure_filter }}">
+
+                            <input type="hidden"
+                                   name="modify"
+                                   value="1">
+
+                            <button type="submit"
+                                    class="btn btn-outline-secondary btn-route">
+
+                                <i class="bi bi-pencil me-1"></i>
+                                Modify Search
+
+                            </button>
+
+                        </form>
+
+
+                        <a href="{% url 'routes:route_detail' route.id %}"
+                           class="btn btn-primary btn-view-route">
+
+                            <i class="bi bi-arrow-right-circle me-1"></i>
+
+                            View Full Route
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+            {% endfor %}
+
+
+        <!-- =====================================================
+             NO RESULTS
+        ====================================================== -->
+
+        {% else %}
+
+            <div class="no-results">
+
+                <div class="no-results-icon">
+
+                    <i class="bi bi-bus-front"></i>
+
+                </div>
+
+
+                <h3>
+                    No Matching Routes Found
+                </h3>
+
+
+                <p>
+
+                    We couldn't find a bus route matching your selected
+                    source and destination.
+
+                    Try choosing different stops or checking your travel
+                    date.
+
+                </p>
+
+
+                <a href="{% url 'routes:route_search' %}"
+                   class="btn btn-primary btn-route">
+
+                    <i class="bi bi-search me-1"></i>
+
+                    Search Again
+
+                </a>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</section>
+
+{% endblock %}

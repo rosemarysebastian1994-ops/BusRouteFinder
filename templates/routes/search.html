@@ -1,0 +1,554 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<style>
+    .search-page {
+        background: #f8f9fa;
+        min-height: calc(100vh - 80px);
+        padding: 70px 0 90px;
+    }
+
+    .search-hero {
+        text-align: center;
+        margin-bottom: 45px;
+    }
+
+    .search-hero .icon-box {
+        width: 72px;
+        height: 72px;
+        background: rgba(13, 110, 253, 0.1);
+        color: #0d6efd;
+        border-radius: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        margin-bottom: 20px;
+    }
+
+    .search-hero h1 {
+        font-size: 38px;
+        font-weight: 700;
+        color: #212529;
+        margin-bottom: 12px;
+    }
+
+    .search-hero p {
+        color: #6c757d;
+        font-size: 17px;
+        max-width: 650px;
+        margin: 0 auto;
+    }
+
+    .search-card {
+        background: #ffffff;
+        border-radius: 20px;
+        box-shadow: 0 10px 35px rgba(0, 0, 0, 0.08);
+        padding: 35px;
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    .search-card-title {
+        font-size: 22px;
+        font-weight: 600;
+        color: #212529;
+        margin-bottom: 25px;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #343a40;
+        margin-bottom: 8px;
+    }
+
+    .form-control {
+        height: 52px;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        padding: 0 15px;
+        font-size: 15px;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.1);
+    }
+
+    .search-input-wrapper {
+        position: relative;
+    }
+
+    .search-input-wrapper i {
+        position: absolute;
+        left: 15px;
+        top: 17px;
+        color: #0d6efd;
+        font-size: 18px;
+        z-index: 2;
+    }
+
+    .search-input-wrapper .form-control {
+        padding-left: 45px;
+    }
+
+    .search-btn {
+        height: 52px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 16px;
+        width: 100%;
+    }
+
+    .quick-info {
+        max-width: 1000px;
+        margin: 35px auto 0;
+    }
+
+    .info-card {
+        background: #ffffff;
+        border-radius: 15px;
+        padding: 22px;
+        height: 100%;
+        border: 1px solid #edf0f2;
+        transition: transform 0.2s ease,
+                    box-shadow 0.2s ease;
+    }
+
+    .info-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+    }
+
+    .info-icon {
+        width: 45px;
+        height: 45px;
+        border-radius: 12px;
+        background: rgba(13, 110, 253, 0.1);
+        color: #0d6efd;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        margin-bottom: 12px;
+    }
+
+    .info-card h6 {
+        font-weight: 600;
+        margin-bottom: 7px;
+        color: #212529;
+    }
+
+    .info-card p {
+        color: #6c757d;
+        font-size: 14px;
+        margin-bottom: 0;
+        line-height: 1.6;
+    }
+
+    .back-home {
+        text-align: center;
+        margin-top: 35px;
+    }
+
+    .back-home a {
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    @media (max-width: 768px) {
+        .search-page {
+            padding: 45px 15px 60px;
+        }
+
+        .search-hero h1 {
+            font-size: 30px;
+        }
+
+        .search-card {
+            padding: 25px 20px;
+        }
+
+        .search-btn {
+            margin-top: 5px;
+        }
+    }
+
+    input[type="date"] {
+        min-width: 100%;
+        padding-right: 8px;
+    }
+</style>
+
+<section class="search-page">
+
+    <div class="container">
+
+        <!-- Page Header -->
+        <div class="search-hero">
+
+            <div class="icon-box">
+                <i class="bi bi-bus-front-fill"></i>
+            </div>
+
+            <h1>Find Your Bus</h1>
+
+            <p>
+                Search for buses between your source and destination
+                and find the best available routes.
+            </p>
+
+        </div>
+
+
+        <!-- Search Form -->
+        <div class="search-card">
+
+            <div class="search-card-title">
+                <i class="bi bi-search text-primary me-2"></i>
+                Search Bus Routes
+            </div>
+
+            <form action="{% url 'routes:route_search' %}"
+                  method="get">
+
+                <div class="row g-4">
+
+                    <!-- Source -->
+                    <div class="col-md-4">
+
+                        <label for="source"
+                               class="form-label">
+                            Source
+                        </label>
+
+                        <div class="search-input-wrapper">
+
+                            <i class="bi bi-geo-alt-fill"></i>
+
+                            <input type="text"
+                               id="source"
+                               name="source"
+                               class="form-control"
+                               placeholder="Enter starting point"
+                               list="stop-list"
+                               value="{{ source|default:'' }}"
+                               required>
+                        </div>
+
+                    </div>
+
+
+                    <!-- Destination -->
+                    <div class="col-md-4">
+
+                        <label for="destination"
+                               class="form-label">
+                            Destination
+                        </label>
+
+                        <div class="search-input-wrapper">
+
+                            <i class="bi bi-geo-alt"></i>
+
+                            <input type="text"
+                               id="destination"
+                               name="destination"
+                               class="form-control"
+                               placeholder="Enter destination"
+                               list="stop-list"
+                               value="{{ destination|default:'' }}"
+                               required>
+
+                        </div>
+
+                    </div>
+
+                    <!-- Travel Date -->
+                    <div class="col-md-3">
+
+                        <label for="travel_date"
+                               class="form-label">
+                            Travel Date
+                        </label>
+
+                        <div class="search-input-wrapper">
+
+                            <i class="bi bi-calendar3"></i>
+
+                            <input type="date"
+                               id="travel_date"
+                               name="travel_date"
+                               class="form-control"
+                               value="{{ travel_date }}">
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-4">
+
+                        <label class="form-label">
+                            Departure Time
+                        </label>
+
+                        <div class="input-group mb-2">
+
+                            <select
+                                name="departure_filter"
+                                id="departure_filter"
+                                class="form-select"
+                            >
+                                <option value="any"
+                                    {% if not departure_time %}selected{% endif %}>
+                                    Any Time
+                                </option>
+
+                                <option value="after"
+                                    {% if departure_time %}selected{% endif %}>
+                                    Departure After
+                                </option>
+                            </select>
+
+                            <input
+                                type="time"
+                                name="departure_time"
+                                id="departure_time"
+                                class="form-control"
+                                value="{{ departure_time }}"
+                                {% if not departure_time %}disabled{% endif %}
+                            >
+
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+
+                            <small class="text-muted">
+                                {% if departure_time %}
+                                    Show buses departing after this time.
+                                {% else %}
+                                    Show buses at any departure time.
+                                {% endif %}
+                            </small>
+
+                            <button
+                                type="button"
+                                id="clearDepartureTime"
+                                class="btn btn-sm btn-outline-secondary"
+                                {% if not departure_time %}disabled{% endif %}
+                            >
+                                <i class="bi bi-x-circle me-1"></i>
+                                Clear
+                            </button>
+
+                        </div>
+
+                    </div>
+                    <!-- Search Button -->
+                    <div class="col-md-1 d-flex align-items-end">
+
+                        <button type="submit"
+                                class="btn btn-primary search-btn">
+
+                            <i class="bi bi-search me-1"></i>
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Stop Suggestions -->
+                <datalist id="stop-list">
+
+                    {% for stop in stops %}
+
+                        <option value="{{ stop.name }}">
+                            {{ stop.location }}
+                        </option>
+
+                    {% endfor %}
+
+                </datalist>
+
+            </form>
+
+        </div>
+
+
+        <!-- Information Cards -->
+        <div class="quick-info">
+
+            <div class="row g-4">
+
+                <div class="col-md-4">
+
+                    <div class="info-card">
+
+                        <div class="info-icon">
+                            <i class="bi bi-geo-alt-fill"></i>
+                        </div>
+
+                        <h6>Choose Your Route</h6>
+
+                        <p>
+                            Enter your starting point and
+                            destination to find matching bus routes.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="col-md-4">
+
+                    <div class="info-card">
+
+                        <div class="info-icon">
+                            <i class="bi bi-signpost-2-fill"></i>
+                        </div>
+
+                        <h6>View Stops</h6>
+
+                        <p>
+                            See the stops along the route and
+                            understand your complete journey.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="col-md-4">
+
+                    <div class="info-card">
+
+                        <div class="info-icon">
+                            <i class="bi bi-clock-fill"></i>
+                        </div>
+
+                        <h6>Check Duration</h6>
+
+                        <p>
+                            View the estimated journey duration
+                            before choosing your route.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Back to Home -->
+        <div class="back-home">
+
+            <a href="{% url 'core:home' %}"
+               class="text-primary">
+
+                <i class="bi bi-arrow-left me-1"></i>
+                Back to Home
+
+            </a>
+
+        </div>
+
+    </div>
+
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const filter = document.getElementById('departure_filter');
+    const timeInput = document.getElementById('departure_time');
+    const clearButton = document.getElementById('clearDepartureTime');
+
+    function getCurrentTime() {
+
+        const now = new Date();
+
+        const hours = String(
+            now.getHours()
+        ).padStart(2, '0');
+
+        const minutes = String(
+            now.getMinutes()
+        ).padStart(2, '0');
+
+        return `${hours}:${minutes}`;
+    }
+
+
+    function updateDepartureControls() {
+
+        if (filter.value === 'after') {
+
+            timeInput.disabled = false;
+
+            /*
+             * If no time has been selected,
+             * use the current time.
+             */
+            if (!timeInput.value) {
+                timeInput.value = getCurrentTime();
+            }
+
+            clearButton.disabled = false;
+
+        } else {
+
+            timeInput.value = '';
+
+            timeInput.disabled = true;
+
+            clearButton.disabled = true;
+        }
+    }
+
+
+    filter.addEventListener(
+        'change',
+        updateDepartureControls
+    );
+
+
+    timeInput.addEventListener(
+        'input',
+        function () {
+
+            clearButton.disabled = !timeInput.value;
+
+        }
+    );
+
+
+    clearButton.addEventListener(
+        'click',
+        function () {
+
+            timeInput.value = '';
+
+            filter.value = 'any';
+
+            timeInput.disabled = true;
+
+            clearButton.disabled = true;
+
+        }
+    );
+
+
+    updateDepartureControls();
+
+});
+</script>
+{% endblock %}

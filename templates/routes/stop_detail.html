@@ -1,0 +1,364 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="container py-5">
+
+    <!-- Back Button -->
+
+    <div class="mb-4">
+
+        <a href="{% url 'routes:stops' %}"
+           class="btn btn-outline-secondary">
+
+            <i class="bi bi-arrow-left me-1"></i>
+            Back to Stops
+
+        </a>
+
+    </div>
+
+
+    <!-- Stop Header -->
+
+    <div class="card border-0 shadow-sm mb-5">
+
+        <div class="card-body p-4 p-md-5">
+
+            <div class="d-flex align-items-center">
+
+                <div
+                    class="rounded-circle bg-primary bg-opacity-10
+                           d-flex align-items-center justify-content-center
+                           flex-shrink-0 me-4"
+                    style="width: 75px; height: 75px;">
+
+                    <i class="bi bi-geo-alt-fill text-primary fs-2"></i>
+
+                </div>
+
+
+                <div class="mr-5">
+
+                    <h1 class="fw-bold mb-1">
+                        {{ stop.name }}
+                    </h1>
+
+                    {% if stop.location %}
+
+                        <p class="text-muted mb-0">
+
+                            <i class="bi bi-pin-map me-1"></i>
+
+                            {{ stop.location }}
+
+                        </p>
+
+                    {% else %}
+
+                        <p class="text-muted mb-0">
+                            Location not specified
+                        </p>
+
+                    {% endif %}
+
+                </div>
+
+                {% if user.is_authenticated %}
+
+                    <form method="post"
+                          action="{% url 'accounts:toggle_favourite_stop' stop.id %}"
+                          class="d-inline">
+
+                        {% csrf_token %}
+
+                        {% if is_favourite %}
+
+                            <button type="submit"
+                                    class="btn btn-outline-danger">
+
+                                <i class="bi bi-heart-fill me-1"></i>
+                                Remove Favourite
+
+                            </button>
+
+                        {% else %}
+
+                            <button type="submit"
+                                    class="btn btn-danger">
+
+                                <i class="bi bi-heart me-1"></i>
+                                Add to Favourites
+
+                            </button>
+
+                        {% endif %}
+
+                    </form>
+
+                    {% else %}
+
+                    <a href="{% url 'accounts:login' %}"
+                       class="btn btn-outline-danger">
+
+                        <i class="bi bi-heart me-1"></i>
+                        Login to Favourite
+
+                    </a>
+
+                    {% endif %}
+
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- Routes -->
+
+    <div class="d-flex justify-content-between
+                align-items-center mb-4">
+
+        <div>
+
+            <h3 class="fw-bold mb-1">
+                Routes Passing Through This Stop
+            </h3>
+
+            <p class="text-muted mb-0">
+                Buses available from {{ stop.name }}
+            </p>
+
+        </div>
+
+
+        {% with route_count=stop.route_stops.count %}
+
+            <span class="badge bg-primary rounded-pill px-3 py-2">
+
+                {{ route_count }}
+                route{{ route_count|pluralize }}
+
+            </span>
+
+        {% endwith %}
+
+    </div>
+
+
+    {% if route_stops %}
+
+        <div class="row g-4">
+
+            {% for route_stop in route_stops %}
+
+                <div class="col-12">
+
+                    <div class="card border-0 shadow-sm">
+
+                        <div class="card-body p-4">
+
+                            <!-- Route Header -->
+
+                            <div class="row align-items-center">
+
+                                <div class="col-md-8">
+
+                                    <div class="d-flex align-items-center mb-2">
+
+                                        <span
+                                            class="badge bg-primary me-3 px-3 py-2">
+
+                                            {{ route_stop.route.bus.get_bus_type_display }}
+
+                                        </span>
+
+                                        <h4 class="fw-bold mb-0">
+
+                                            {{ route_stop.route.route_name }}
+
+                                        </h4>
+
+                                    </div>
+
+
+                                    <p class="text-muted mb-0">
+
+                                        {{ route_stop.route.description }}
+
+                                    </p>
+
+                                </div>
+
+
+                                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+
+                                    <div class="fw-bold fs-5">
+
+                                        {{ route_stop.route.bus.bus_number }}
+
+                                    </div>
+
+                                    <div class="text-muted">
+
+                                        {{ route_stop.route.bus.bus_name }}
+
+                                    </div>
+
+                                    {% if route_stop.route.bus.operator %}
+
+                                        <small class="text-muted">
+
+                                            Operated by
+                                            {{ route_stop.route.bus.operator }}
+
+                                        </small>
+
+                                    {% endif %}
+
+                                </div>
+
+                            </div>
+
+
+                            <hr class="my-4">
+
+
+                            <!-- Current Stop -->
+
+                            <div class="mb-3">
+
+                                <span class="badge bg-success px-3 py-2">
+
+                                    <i class="bi bi-geo-alt-fill me-1"></i>
+
+                                    You are here:
+                                    {{ stop.name }}
+
+                                </span>
+
+                            </div>
+
+
+                            <!-- Subsequent Stops -->
+
+                            <h6 class="fw-bold mb-3">
+
+                                <i class="bi bi-signpost-2 me-1"></i>
+
+                                Stops Ahead
+
+                            </h6>
+
+
+                            <div class="list-group list-group-flush">
+
+                                {% for next_stop in route_stop.route.route_stops.all %}
+
+                                    {% if next_stop.stop_order > route_stop.stop_order %}
+
+                                        <div
+                                            class="list-group-item
+                                                   px-0
+                                                   d-flex
+                                                   align-items-center">
+
+                                            <div class="me-3">
+
+                                                <i class="bi bi-arrow-right-circle
+                                                          text-primary"></i>
+
+                                            </div>
+
+                                            <div>
+
+                                                <div class="fw-semibold">
+
+                                                    {{ next_stop.stop.name }}
+
+                                                </div>
+
+                                                {% if next_stop.stop.location %}
+
+                                                    <small class="text-muted">
+
+                                                        {{ next_stop.stop.location }}
+
+                                                    </small>
+
+                                                {% endif %}
+
+                                            </div>
+
+                                            <span
+                                                class="badge bg-light text-dark ms-auto">
+
+                                                Stop {{ next_stop.stop_order }}
+
+                                            </span>
+
+                                        </div>
+
+                                    {% endif %}
+
+                                {% endfor %}
+
+                            </div>
+
+
+                            <!-- Search Route -->
+
+                            <div class="text-end mt-4">
+
+                                <a
+                                    href="{% url 'routes:route_search' %}?source={{ stop.name|urlencode }}"
+                                    class="btn btn-primary">
+
+                                    <i class="bi bi-search me-1"></i>
+
+                                    Search Buses From {{ stop.name }}
+
+                                </a>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+
+    {% else %}
+
+        <!-- No Routes -->
+
+        <div class="card border-0 shadow-sm">
+
+            <div class="card-body text-center py-5">
+
+                <i class="bi bi-bus-front fs-1 text-muted"></i>
+
+                <h4 class="fw-bold mt-3">
+                    No routes available
+                </h4>
+
+                <p class="text-muted">
+                    No buses are currently assigned to this stop.
+                </p>
+
+            </div>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+<title>Bus Routes</title>
+{% endblock %}
+
+{% block content %}
+
+<section class="ftco-section">
+    <div class="container">
+
+        <!-- Heading -->
+        <div class="row justify-content-center mb-5">
+            <div class="col-md-8 text-center heading-section">
+                <span class="subheading">Explore</span>
+                <h2 class="mb-3">Bus Routes</h2>
+
+                <p>
+                    Explore available bus routes and their stops.
+                </p>
+            </div>
+        </div>
+
+
+        <!-- Routes -->
+        <div class="row">
+
+            {% for route in routes %}
+
+                <div class="col-md-6 col-lg-4 mb-4">
+
+                    <div class="card h-100 shadow-sm border-0">
+
+                        <div class="card-body">
+
+                            <h4 class="card-title">
+                                {{ route.route_name }}
+                            </h4>
+
+                            <hr>
+
+                            <p class="mb-2">
+                                <strong>Bus:</strong>
+                                {{ route.bus.bus_number }}
+                            </p>
+
+                            <p class="mb-2">
+                                <strong>Bus Name:</strong>
+                                {{ route.bus.bus_name }}
+                            </p>
+
+                            <p class="mb-3">
+                                <strong>Type:</strong>
+                                {{ route.bus.get_bus_type_display }}
+                            </p>
+
+
+                            <!-- Stops -->
+                            <h6 class="fw-bold">
+                                Stops
+                            </h6>
+
+                            <div class="mb-3">
+
+                                {% for route_stop in route.route_stops.all %}
+
+                                    <span class="badge bg-light text-dark border mb-1">
+                                        {{ route_stop.stop.name }}
+                                    </span>
+
+                                    {% if not forloop.last %}
+                                        <span class="text-muted">→</span>
+                                    {% endif %}
+
+                                {% empty %}
+
+                                    <span class="text-muted">
+                                        No stops added.
+                                    </span>
+
+                                {% endfor %}
+
+                            </div>
+
+
+                            <a href="{% url 'routes:route_detail' route.id %}"
+                               class="btn btn-primary">
+                                View Route
+                            </a>
+
+                            {% if user.is_authenticated %}
+
+                                <form method="post"
+                                      action="{% url 'accounts:toggle_favourite_route' route.id %}"
+                                      class="d-inline">
+
+                                    {% csrf_token %}
+
+                                    {% if route.id in favourite_route_ids %}
+
+                                        <button type="submit"
+                                                class="btn btn-outline-danger">
+
+                                            <i class="bi bi-heart-fill me-1"></i>
+                                            Remove Favourite
+
+                                        </button>
+
+                                    {% else %}
+
+                                        <button type="submit"
+                                                class="btn btn-outline-danger">
+
+                                            <i class="bi bi-heart me-1"></i>
+                                            Add to Favourites
+
+                                        </button>
+
+                                    {% endif %}
+
+                                </form>
+
+                                {% else %}
+
+                                <a href="{% url 'accounts:login' %}"
+                                   class="btn btn-outline-danger">
+
+                                    <i class="bi bi-heart me-1"></i>
+                                    Login to Favourite
+
+                                </a>
+
+                                {% endif %}
+
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            {% empty %}
+
+                <div class="col-12">
+
+                    <div class="alert alert-info text-center">
+                        No bus routes are available yet.
+                    </div>
+
+                </div>
+
+            <!-- Weekly Schedule -->
+
+                <div class="mt-4">
+
+                <h6 class="fw-bold mb-3">
+                    <i class="bi bi-calendar-week me-2"></i>
+                    Weekly Schedule
+                </h6>
+
+
+                {% for day in route.weekly_schedules %}
+
+                    <div class="border rounded p-3 mb-2">
+
+                        <div class="d-flex justify-content-between align-items-center">
+
+                            <div class="fw-bold">
+
+                                <i class="bi bi-calendar3 me-2"></i>
+                                {{ day.name }}
+
+                            </div>
+
+
+                            {% if day.schedules %}
+
+                                <span class="badge bg-success">
+                                    {{ day.schedules|length }}
+                                    departure{{ day.schedules|length|pluralize }}
+                                </span>
+
+                            {% else %}
+
+                                <span class="badge bg-secondary">
+                                    No service
+                                </span>
+
+                            {% endif %}
+
+                        </div>
+
+
+                        {% if day.schedules %}
+
+                            <div class="d-flex flex-wrap gap-2 mt-3">
+
+                                {% for schedule in day.schedules %}
+
+                                    <span class="badge bg-light text-dark border p-2">
+
+                                        <i class="bi bi-clock me-1"></i>
+
+                                        {{ schedule.departure_time|time:"g:i A" }}
+
+                                        {% if schedule.arrival_time %}
+
+                                            <span class="text-muted mx-1">
+                                                →
+                                            </span>
+
+                                            {{ schedule.arrival_time|time:"g:i A" }}
+
+                                        {% endif %}
+
+                                    </span>
+
+                                {% endfor %}
+
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+                {% endfor %}
+
+                </div>
+
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+</section>
+
+{% endblock %}

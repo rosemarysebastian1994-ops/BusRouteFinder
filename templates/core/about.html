@@ -1,0 +1,357 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- START PAGE HEADER -->
+
+<section class="page-header py-5 bg-light">
+    <div class="container text-center">
+        <h1 class="fw-bold mb-2">About Bus Route Finder</h1>
+        <p class="text-muted mb-0">
+            Find the right bus route quickly and easily
+        </p>
+    </div>
+</section>
+<!-- END PAGE HEADER -->
+
+<!-- START ABOUT SECTION -->
+
+<section class="py-5">
+    <div class="container">
+
+```
+    <div class="row align-items-center g-5">
+
+        <!-- LEFT CONTENT -->
+        <div class="col-lg-6">
+
+            <span class="text-primary fw-semibold">
+                ABOUT OUR SYSTEM
+            </span>
+
+            <h2 class="fw-bold mt-2 mb-4">
+                Making Bus Route Search Simple
+            </h2>
+
+            <p class="text-muted">
+                Bus Route Finder is a web-based application designed to
+                help users find suitable bus routes between two locations.
+                Instead of manually checking different routes and stops,
+                users can simply enter their starting point and destination
+                to discover available buses.
+            </p>
+
+            <p class="text-muted">
+                The system maintains information about buses, routes and
+                stops and uses this information to provide relevant route
+                results. It also allows users to explore individual bus
+                stops and view the routes that pass through them.
+            </p>
+
+            <p class="text-muted">
+                Our goal is to make public transportation information
+                easier to access, understand and use.
+            </p>
+
+        </div>
+
+
+        <!-- RIGHT FEATURE CARD -->
+        <div class="col-lg-6">
+
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+
+                <div class="text-center mb-4">
+                    <div class="bg-primary bg-opacity-10
+                                rounded-circle d-inline-flex
+                                align-items-center justify-content-center"
+                         style="width: 90px; height: 90px;">
+
+                        <i class="bi bi-bus-front-fill text-primary"
+                           style="font-size: 42px;"></i>
+
+                    </div>
+
+                    <h4 class="fw-bold mt-3">
+                        Smarter Bus Navigation
+                    </h4>
+
+                    <p class="text-muted mb-0">
+                        Search routes, explore stops and discover
+                        available buses from one place.
+                    </p>
+                </div>
+
+
+                <div class="row g-3">
+
+                    <div class="col-6">
+                        <div class="bg-light rounded-3 p-3 text-center h-100">
+                            <i class="bi bi-search text-primary fs-3"></i>
+                            <h6 class="fw-bold mt-2 mb-1">
+                                Easy Search
+                            </h6>
+                            <small class="text-muted">
+                                Find routes using source and destination.
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="col-6">
+                        <div class="bg-light rounded-3 p-3 text-center h-100">
+                            <i class="bi bi-signpost-2 text-primary fs-3"></i>
+                            <h6 class="fw-bold mt-2 mb-1">
+                                Explore Stops
+                            </h6>
+                            <small class="text-muted">
+                                View stops and the routes passing through them.
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="col-6">
+                        <div class="bg-light rounded-3 p-3 text-center h-100">
+                            <i class="bi bi-bus-front text-primary fs-3"></i>
+                            <h6 class="fw-bold mt-2 mb-1">
+                                Bus Information
+                            </h6>
+                            <small class="text-muted">
+                                View bus numbers, names and types.
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="col-6">
+                        <div class="bg-light rounded-3 p-3 text-center h-100">
+                            <i class="bi bi-geo-alt text-primary fs-3"></i>
+                            <h6 class="fw-bold mt-2 mb-1">
+                                Route Details
+                            </h6>
+                            <small class="text-muted">
+                                See the stops included in each route.
+                            </small>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</section>
+<!-- END ABOUT SECTION -->
+
+<!-- START HOW IT WORKS -->
+
+<section class="py-5 bg-light">
+    <div class="container">
+
+    <div class="text-center mb-5">
+
+        <span class="text-primary fw-semibold">
+            HOW IT WORKS
+        </span>
+
+        <h2 class="fw-bold mt-2">
+            Find Your Bus Route in Three Steps
+        </h2>
+
+        <p class="text-muted">
+            A simple way to discover the right route for your journey.
+        </p>
+
+    </div>
+
+
+    <div class="row g-4">
+
+        <!-- STEP 1 -->
+        <div class="col-md-4">
+
+            <div class="card border-0 shadow-sm rounded-4
+                        text-center p-4 h-100">
+
+                <div class="bg-primary bg-opacity-10
+                            rounded-circle d-inline-flex
+                            align-items-center justify-content-center
+                            mx-auto"
+                     style="width: 70px; height: 70px;">
+
+                    <i class="bi bi-geo-alt-fill text-primary fs-3"></i>
+
+                </div>
+
+                <h5 class="fw-bold mt-4">
+                    1. Choose Your Stops
+                </h5>
+
+                <p class="text-muted mb-0">
+                    Enter your starting point and destination using
+                    the available bus stops.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- STEP 2 -->
+        <div class="col-md-4">
+
+            <div class="card border-0 shadow-sm rounded-4
+                        text-center p-4 h-100">
+
+                <div class="bg-primary bg-opacity-10
+                            rounded-circle d-inline-flex
+                            align-items-center justify-content-center
+                            mx-auto"
+                     style="width: 70px; height: 70px;">
+
+                    <i class="bi bi-search text-primary fs-3"></i>
+
+                </div>
+
+                <h5 class="fw-bold mt-4">
+                    2. Search Routes
+                </h5>
+
+                <p class="text-muted mb-0">
+                    The system checks the available routes and
+                    identifies buses that travel between your stops.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- STEP 3 -->
+        <div class="col-md-4">
+
+            <div class="card border-0 shadow-sm rounded-4
+                        text-center p-4 h-100">
+
+                <div class="bg-primary bg-opacity-10
+                            rounded-circle d-inline-flex
+                            align-items-center justify-content-center
+                            mx-auto"
+                     style="width: 70px; height: 70px;">
+
+                    <i class="bi bi-check-circle-fill text-primary fs-3"></i>
+
+                </div>
+
+                <h5 class="fw-bold mt-4">
+                    3. View Your Route
+                </h5>
+
+                <p class="text-muted mb-0">
+                    View the available bus, route information and
+                    the stops along the journey.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</section>
+<!-- END HOW IT WORKS -->
+
+<!-- START TECHNOLOGY -->
+
+<section class="py-5">
+    <div class="container">
+
+    <div class="row justify-content-center">
+
+        <div class="col-lg-9 text-center">
+
+            <span class="text-primary fw-semibold">
+                TECHNOLOGY
+            </span>
+
+            <h2 class="fw-bold mt-2 mb-4">
+                Built as a Modern Web Application
+            </h2>
+
+            <p class="text-muted">
+                Bus Route Finder is developed using Django and Python
+                for the application logic and database management.
+                Bootstrap is used to create a responsive and
+                user-friendly interface.
+            </p>
+
+            <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+
+                <span class="badge bg-dark fs-6 px-3 py-2">
+                    <i class="bi bi-filetype-py me-1"></i>
+                    Python
+                </span>
+
+                <span class="badge bg-success fs-6 px-3 py-2">
+                    <i class="bi bi-code-slash me-1"></i>
+                    Django
+                </span>
+
+                <span class="badge bg-primary fs-6 px-3 py-2">
+                    <i class="bi bi-bootstrap me-1"></i>
+                    Bootstrap
+                </span>
+
+                <span class="badge bg-secondary fs-6 px-3 py-2">
+                    <i class="bi bi-database me-1"></i>
+                    Database
+                </span>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</section>
+<!-- END TECHNOLOGY -->
+
+<!-- START CALL TO ACTION -->
+
+<section class="py-5 bg-light">
+    <div class="container">
+
+    <div class="text-center">
+
+        <h2 class="fw-bold">
+            Ready to Find Your Route?
+        </h2>
+
+        <p class="text-muted mb-4">
+            Search for buses and discover routes between your stops.
+        </p>
+
+        <a href="{% url 'routes:route_search' %}"
+           class="btn btn-primary px-4 py-2">
+
+            <i class="bi bi-search me-2"></i>
+            Search Bus Routes
+
+        </a>
+
+    </div>
+
+</div>
+
+</section>
+<!-- END CALL TO ACTION -->
+
+{% endblock %}

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+  <head>
+    {% block title %}
+    <title>Bus Route Finder</title>
+    {% endblock %}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <link href="https://fonts.googleapis.com/css?family=Poppins:200,300,400,500,600,700,800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <link rel="stylesheet" href="{% static 'css/open-iconic-bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/animate.css' %}">
+
+    <link rel="stylesheet" href="{% static 'css/owl.carousel.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/owl.theme.default.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/magnific-popup.css' %}">
+
+    <link rel="stylesheet" href="{% static 'css/aos.css' %}">
+
+    <link rel="stylesheet" href="{% static 'css/ionicons.min.css' %}">
+
+    <link rel="stylesheet" href="{% static 'css/bootstrap-datepicker.css' %}">
+    <link rel="stylesheet" href="{% static 'css/jquery.timepicker.css' %}">
+
+
+    <link rel="stylesheet" href="{% static 'css/flaticon.css' %}">
+    <link rel="stylesheet" href="{% static 'css/icomoon.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  </head>
+  <body>
+<nav class="navbar navbar-expand-lg navbar-dark ftco_navbar bg-dark ftco-navbar-dark" id="ftco-navbar">
+
+    <div class="container-fluid">
+
+        <a class="navbar-brand" href="{% url 'core:home' %}">
+            Bus <span>Route Finder</span>
+        </a>
+
+        <button class="navbar-toggler"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#ftco-nav"
+                aria-controls="ftco-nav"
+                aria-expanded="false"
+                aria-label="Toggle navigation">
+
+            <span class="oi oi-menu"></span>
+            Menu
+
+        </button>
+
+        <div class="collapse navbar-collapse" id="ftco-nav">
+
+            <ul class="navbar-nav ms-auto">
+
+                <li class="nav-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+                    <a href="{% url 'core:home' %}" class="nav-link">
+                        Home
+                    </a>
+                </li>
+
+                <li class="nav-item {% if request.resolver_match.url_name == 'route_search' %}active{% endif %}">
+                    <a href="{% url 'routes:route_search' %}" class="nav-link">
+                        Find Bus
+                    </a>
+                </li>
+
+                <li class="nav-item {% if request.resolver_match.url_name == 'routes' %}active{% endif %}">
+                    <a href="{% url 'routes:routes' %}" class="nav-link">
+                        Routes
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="{% url 'routes:stops' %}"
+                       class="nav-link {% if request.resolver_match.url_name == 'stops' %}active{% endif %}">
+                        <i class="bi bi-geo-alt me-1"></i>
+                        Bus Stops
+                    </a>
+                </li>
+                {% if user.is_authenticated and user.is_superuser %}
+
+                    <li class="nav-item
+                        {% if request.resolver_match.url_name == 'route_management' or request.resolver_match.url_name == 'route_create' or request.resolver_match.url_name == 'route_edit' or request.resolver_match.url_name == 'route_delete' or request.resolver_match.url_name == 'manage_route_stops' or request.resolver_match.url_name == 'add_route_stop' or request.resolver_match.url_name == 'edit_route_stop' or request.resolver_match.url_name == 'delete_route_stop' or request.resolver_match.url_name == 'move_route_stop_up' or request.resolver_match.url_name == 'move_route_stop_down' or request.resolver_match.url_name == 'schedule_management' or request.resolver_match.url_name == 'schedule_create' or request.resolver_match.url_name == 'schedule_edit' or request.resolver_match.url_name == 'schedule_delete' %}active{% endif %}">
+
+                        <a href="{% url 'routes:route_management' %}"
+                           class="nav-link">
+
+                            <i class="bi bi-signpost-2 me-1"></i>
+                            Route Management
+
+                        </a>
+
+                    </li>
+
+                <li class="nav-item
+                    {% if request.resolver_match.url_name == 'schedule_management' or request.resolver_match.url_name == 'schedule_create' or request.resolver_match.url_name == 'schedule_edit' or request.resolver_match.url_name == 'schedule_delete' %} active {% endif %}">
+
+                    <a href="{% url 'routes:schedule_management' %}"
+                       class="nav-link">
+
+                        <i class="bi bi-clock-history me-1"></i>
+                        Schedules
+
+                    </a>
+
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a href="{% url 'core:about' %}"
+                       class="nav-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
+                        About
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="{% url 'core:contact' %}"
+                       class="nav-link {% if request.resolver_match.url_name == 'contact' %}active{% endif %}">
+                        Contact
+                    </a>
+                </li>
+
+            </ul>
+
+            {% if user.is_authenticated %}
+                    <a href="{% url 'accounts:favourites' %}">
+                        <i class="bi bi-heart-fill me-1"></i>
+                        Favourites
+                    </a>
+                    <a href="{% url 'buses:live_buses' %}">
+                        <i class="bi bi-bus-front-fill me-1"></i>
+                        Live Buses
+                    </a>
+                    <a href="{% url 'buses:driver_tracking' %}">
+                        Track Driver  
+                    </a>
+                    <a href="{% url 'accounts:profile' %}"
+                       class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                        <i class="bi bi-person-circle me-1"></i>
+                        Profile
+                    </a>
+
+    <a href="{% url 'accounts:logout' %}"
+       class="nav-link">
+        <i class="bi bi-box-arrow-right me-1"></i>
+        Logout
+    </a>
+
+{% else %}
+
+    <a
+        href="{% url 'accounts:login' %}"
+        class="nav-link">
+
+        <i class="bi bi-box-arrow-in-right me-1"></i>
+        Login
+
+    </a>
+
+    <a
+        href="{% url 'accounts:register' %}"
+        class="nav-link">
+
+        <i class="bi bi-person-plus me-1"></i>
+        Register
+
+    </a>
+
+{% endif %}
+
+        </div>
+
+    </div>
+
+</nav>
+    <!-- END nav -->
+
+{% block content %}
+{% endblock %}
+    <footer class="ftco-footer ftco-bg-dark ftco-section">
+      <div class="container">
+        <div class="row mb-5">
+          <div class="col-md">
+            <div class="ftco-footer-widget mb-4">
+              <h2 class="ftco-heading-2">About Autoroad</h2>
+              <p>Far far away, behind the word mountains, far from the countries Vokalia and Consonantia, there live the blind texts.</p>
+              <ul class="ftco-footer-social list-unstyled float-md-left float-lft mt-5">
+                <li class="ftco-animate"><a href="#"><span class="icon-twitter"></span></a></li>
+                <li class="ftco-animate"><a href="#"><span class="icon-facebook"></span></a></li>
+                <li class="ftco-animate"><a href="#"><span class="icon-instagram"></span></a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="col-md">
+            <div class="ftco-footer-widget mb-4 ms-md-5">
+              <h2 class="ftco-heading-2">Information</h2>
+              <ul class="list-unstyled">
+                <li><a href="#" class="py-2 d-block">About</a></li>
+                <li><a href="#" class="py-2 d-block">Services</a></li>
+                <li><a href="#" class="py-2 d-block">Term and Conditions</a></li>
+                <li><a href="#" class="py-2 d-block">Best Price Guarantee</a></li>
+                <li><a href="#" class="py-2 d-block">Privacy &amp; Cookies Policy</a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="col-md">
+             <div class="ftco-footer-widget mb-4">
+              <h2 class="ftco-heading-2">Customer Support</h2>
+              <ul class="list-unstyled">
+                <li><a href="#" class="py-2 d-block">FAQ</a></li>
+                <li><a href="#" class="py-2 d-block">Payment Option</a></li>
+                <li><a href="#" class="py-2 d-block">Booking Tips</a></li>
+                <li><a href="#" class="py-2 d-block">How it works</a></li>
+                <li><a href="#" class="py-2 d-block">Contact Us</a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="col-md">
+            <div class="ftco-footer-widget mb-4">
+            	<h2 class="ftco-heading-2">Have a Questions?</h2>
+            	<div class="block-23 mb-3">
+	              <ul>
+	                <li><span class="icon icon-map-marker"></span><span class="text">203 Fake St. Mountain View, San Francisco, California, USA</span></li>
+	                <li><a href="#"><span class="icon icon-phone"></span><span class="text">+2 392 3929 210</span></a></li>
+	                <li><a href="#"><span class="icon icon-envelope"></span><span class="text">info@yourdomain.com</span></a></li>
+	              </ul>
+	            </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-12 text-center">
+
+            <p><!-- Link back to Colorlib can't be removed. Template is licensed under CC BY 3.0. -->
+  Copyright &copy;<script>document.write(new Date().getFullYear());</script> All rights reserved | This template is made with <i class="icon-heart color-danger" aria-hidden="true"></i> by <a href="https://colorlib.com" target="_blank">Colorlib</a>
+  <!-- Link back to Colorlib can't be removed. Template is licensed under CC BY 3.0. --></p>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+
+
+  <!-- loader -->
+  <div id="ftco-loader" class="show fullscreen"><svg class="circular" width="48px" height="48px"><circle class="path-bg" cx="24" cy="24" r="22" fill="none" stroke-width="4" stroke="#eeeeee"/><circle class="path" cx="24" cy="24" r="22" fill="none" stroke-width="4" stroke-miterlimit="10" stroke="#F96D00"/></svg></div>
+
+
+  <script src="{% static 'js/jquery.min.js' %}"></script>
+  <script src="{% static 'js/jquery-migrate-3.0.1.min.js' %}"></script>
+  <script src="{% static 'js/popper.min.js' %}"></script>
+  <script src="{% static 'js/bootstrap.min.js' %}"></script>
+  <script src="{% static 'js/jquery.easing.1.3.js' %}"></script>
+  <script src="{% static 'js/jquery.waypoints.min.js' %}"></script>
+  <script src="{% static 'js/jquery.stellar.min.js' %}"></script>
+  <script src="{% static 'js/owl.carousel.min.js' %}"></script>
+  <script src="{% static 'js/jquery.magnific-popup.min.js' %}"></script>
+  <script src="{% static 'js/aos.js' %}"></script>
+  <script src="{% static 'js/jquery.animateNumber.min.js' %}"></script>
+  <script src="{% static 'js/bootstrap-datepicker.js' %}"></script>
+  <script src="{% static 'js/jquery.timepicker.min.js' %}"></script>
+  <script src="{% static 'js/scrollax.min.js' %}"></script>
+<!--  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBVWaKrjvy3MaE7SQ74_uJiULgl1JY0H2s&sensor=false"></script>-->
+<!--  <script src="{% static 'js/google-map.js' %}"></script>-->
+  <script src="{% static 'js/main.js' %}"></script>
+
+  </body>
+</html>
