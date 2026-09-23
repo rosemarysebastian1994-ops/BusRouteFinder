@@ -42,8 +42,8 @@
 
         <button class="navbar-toggler"
                 type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#ftco-nav"
+                data-toggle="collapse"
+                data-target="#ftco-nav"
                 aria-controls="ftco-nav"
                 aria-expanded="false"
                 aria-label="Toggle navigation">
@@ -136,7 +136,7 @@
                         Live Buses
                     </a>
                     <a href="{% url 'buses:driver_tracking' %}">
-                        Track Driver  
+                        Track Driver
                     </a>
                     <a href="{% url 'accounts:profile' %}"
                        class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
