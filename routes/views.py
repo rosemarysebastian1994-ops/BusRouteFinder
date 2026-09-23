@@ -807,6 +807,21 @@ def stop_detail(request, stop_id):
         id=stop_id
     )
 
+    route_stops = (
+        stop.route_stops
+        .select_related(
+            'route',
+            'route__bus',
+        )
+        .prefetch_related(
+            'route__route_stops__stop'
+        )
+        .order_by(
+            'route__route_name',
+            'stop_order'
+        )
+    )
+
     is_favourite = False
 
     if request.user.is_authenticated:
@@ -820,6 +835,7 @@ def stop_detail(request, stop_id):
         'routes/stop_detail.html',
         {
             'stop': stop,
+            'route_stops': route_stops,
             'is_favourite': is_favourite,
         }
     )
