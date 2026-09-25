@@ -39,4 +39,16 @@ urlpatterns = [
         views.live_bus_locations,
         name='live_bus_locations'
     ),
+
+    path(
+        '<int:bus_id>/',
+        views.bus_detail,
+        name='bus_detail'
+    ),
+
+    path(
+        '<int:bus_id>/timings/',
+        views.bus_timings,
+        name='bus_timings'
+    ),
 ]

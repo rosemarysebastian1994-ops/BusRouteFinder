@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="container py-5">
+
+    <div class="row justify-content-center">
+
+        <div class="col-lg-8">
+
+            <div class="card border-0 shadow-sm">
+
+                {% if bus.photo %}
+
+                    <img
+                        src="{{ bus.photo.url }}"
+                        class="card-img-top"
+                        alt="{{ bus.bus_name }}"
+                        style="
+                            max-height: 400px;
+                            object-fit: cover;
+                        "
+                    >
+
+                {% else %}
+
+                    <img
+                        src="{% static 'images/car-1.jpg' %}"
+                        class="card-img-top"
+                        alt="{{ bus.bus_name }}"
+                        style="
+                            max-height: 400px;
+                            object-fit: cover;
+                        "
+                    >
+
+                {% endif %}
+
+                <div class="card-body p-4">
+
+                    <h2 class="mb-3">
+                        {{ bus.bus_name }}
+                    </h2>
+
+                    <p>
+                        <strong>Bus Number:</strong>
+                        {{ bus.bus_number }}
+                    </p>
+
+                    <p>
+                        <strong>Bus Type:</strong>
+                        {{ bus.get_bus_type_display }}
+                    </p>
+
+                    {% if bus.operator %}
+                        <p>
+                            <strong>Operator:</strong>
+                            {{ bus.operator }}
+                        </p>
+                    {% endif %}
+
+                    <p>
+                        <strong>Approx. Fare:</strong>
+                        ₹{{ bus.fare }}
+                    </p>
+
+                    <p>
+                        <strong>Bus ID:</strong>
+                        {{ bus.id }}
+                    </p>
+
+                    {% if routes %}
+
+                        <hr>
+
+                        <h5 class="mb-3">
+                            Routes
+                        </h5>
+
+                        <div class="list-group">
+
+                            {% for route in routes %}
+
+                                <div class="list-group-item">
+
+                                    <strong>
+                                        {{ route }}
+                                    </strong>
+
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+                    {% endif %}
+
+                    <div class="mt-4">
+
+                        <a
+                            href="{% url 'buses:bus_timings' bus.id %}"
+                            class="btn btn-black btn-outline-black me-2"
+                        >
+                            Timings
+                        </a>
+
+                        <a
+                            href="{% url 'core:home' %}"
+                            class="btn btn-black btn-outline-black"
+                        >
+                            Back to Home
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

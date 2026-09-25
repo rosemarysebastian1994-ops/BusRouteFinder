@@ -36,7 +36,7 @@ class Route(models.Model):
         return f"{minutes} min"
 
     def __str__(self):
-        return self.route_name
+        return f"{self.route_name} (ID: {self.id})"
 
 
 class Stop(models.Model):

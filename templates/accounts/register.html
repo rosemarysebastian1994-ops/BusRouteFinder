@@ -109,6 +109,42 @@
 
                         </div>
 
+                        <div class="mb-4">
+
+                            <label class="form-label d-block">
+                                Register as
+                            </label>
+
+                            <div class="d-flex gap-4">
+
+                                {% for radio in form.role %}
+
+                                    <div class="form-check">
+
+                                        {{ radio.tag }}
+
+                                        <label
+                                            class="form-check-label"
+                                            for="{{ radio.id_for_label }}">
+
+                                            {{ radio.choice_label }}
+
+                                        </label>
+
+                                    </div>
+
+                                {% endfor %}
+
+                            </div>
+
+                            {% for error in form.role.errors %}
+                                <div class="text-danger small mt-1">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
+
+                        </div>
+
 
                         <div class="mb-3">
 

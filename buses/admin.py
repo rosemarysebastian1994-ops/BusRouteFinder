@@ -6,27 +6,32 @@ from .models import Bus, BusLocation
 
 @admin.register(Bus)
 class BusAdmin(admin.ModelAdmin):
+
     list_display = (
-        'bus_number',
         'bus_name',
+        'id',
+        'bus_number',
         'bus_type',
         'operator',
+        'fare',
+        'driver',
         'current_route',
+    )
+
+    list_display_links = (
+        'bus_name',
     )
 
     list_filter = (
         'bus_type',
-        'current_route',
+        'operator',
     )
 
     search_fields = (
         'bus_number',
         'bus_name',
         'operator',
-        'current_route__route_name',
     )
-
-    ordering = ('bus_number',)
 
 @admin.register(BusLocation)
 class BusLocationAdmin(admin.ModelAdmin):

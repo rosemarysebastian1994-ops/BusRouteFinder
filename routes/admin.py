@@ -8,6 +8,7 @@ from .models import Route, Stop, RouteStop, BusSchedule
 class RouteAdmin(admin.ModelAdmin):
     list_display = (
         'route_name',
+        'id',
         'bus',
     )
 

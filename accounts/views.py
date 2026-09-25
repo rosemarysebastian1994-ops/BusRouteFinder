@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.models import Group
 
 from .forms import RegisterForm, UserProfileForm, ProfileForm
 from .models import Profile, FavouriteRoute, FavouriteStop
@@ -20,6 +21,22 @@ def register(request):
         if form.is_valid():
 
             user = form.save()
+
+            role = form.cleaned_data['role']
+
+            if role == 'driver':
+
+                group, created = Group.objects.get_or_create(
+                    name='Drivers'
+                )
+
+            else:
+
+                group, created = Group.objects.get_or_create(
+                    name='Passengers'
+                )
+
+            user.groups.add(group)
 
             login(request, user)
 

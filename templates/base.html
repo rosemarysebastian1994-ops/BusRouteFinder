@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 {% load static %}
+{% load group_tags %}
 <html lang="en">
   <head>
     {% block title %}
@@ -127,20 +128,26 @@
             </ul>
 
             {% if user.is_authenticated %}
-                    <a href="{% url 'accounts:favourites' %}" class="nav-link">
-                        <i class="bi bi-heart-fill me-1"></i>
-                        Favourites
+
+                <a href="{% url 'accounts:favourites' %}" class="nav-link">
+                    <i class="bi bi-heart-fill me-1"></i>
+                    Favourites
+                </a>
+
+                {% if user|in_group:"Drivers" %}
+                    <a href="{% url 'buses:driver_tracking' %}" class="nav-link">
+                        <i class="bi bi-broadcast-pin me-1"></i>
+                        Track Driver
                     </a>
-                    {% if user.is_superuser %}
-                        <a href="{% url 'buses:driver_tracking' %}" class="nav-link">
-                            Track Driver
-                        </a>
-                    {% else %}
-                        <a href="{% url 'buses:live_buses' %}" class="nav-link">
-                            <i class="bi bi-bus-front-fill me-1"></i>
-                            Live Buses
-                        </a>
-                    {% endif %}
+                {% endif %}
+
+                {% if user|in_group:"Passengers" %}
+                    <a href="{% url 'buses:live_buses' %}" class="nav-link">
+                        <i class="bi bi-bus-front-fill me-1"></i>
+                        Live Buses
+                    </a>
+                {% endif %}
+
                     <a href="{% url 'accounts:profile' %}"
                        class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
                         <i class="bi bi-person-circle me-1"></i>

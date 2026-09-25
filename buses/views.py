@@ -10,7 +10,7 @@ from django.core.cache import cache
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 
-from routes.models import Route, RouteStop
+from routes.models import Route, RouteStop, BusSchedule
 
 from math import radians, sin, cos, sqrt, atan2
 
@@ -27,21 +27,73 @@ from .models import (
 STOP_ARRIVAL_DISTANCE_KM = 0.08
 STOP_DEPARTURE_DISTANCE_KM = 0.15
 
+def bus_detail(request, bus_id):
+
+    bus = get_object_or_404(
+        Bus,
+        id=bus_id
+    )
+
+    routes = (
+        bus.routes
+        .all()
+        .order_by('route_name')
+    )
+
+    return render(
+        request,
+        'buses/bus_detail.html',
+        {
+            'bus': bus,
+            'routes': routes,
+        }
+    )
+
+def bus_timings(request, bus_id):
+
+    bus = get_object_or_404(
+        Bus,
+        id=bus_id
+    )
+
+    schedules = (
+        BusSchedule.objects
+        .filter(
+            route__bus=bus,
+            is_active=True
+        )
+        .select_related('route')
+        .order_by(
+            'day_order',
+            'departure_time'
+        )
+    )
+
+    return render(
+        request,
+        'buses/bus_timings.html',
+        {
+            'bus': bus,
+            'schedules': schedules,
+        }
+    )
+
 @login_required
 def driver_tracking(request):
 
-    buses = (
+    bus = (
         Bus.objects
         .select_related('current_route')
         .prefetch_related(
             'routes__route_stops__stop'
         )
-        .order_by('bus_number')
+        .filter(driver=request.user)
+        .first()
     )
 
     route_data = {}
 
-    for bus in buses:
+    if bus:
 
         route_data[str(bus.id)] = {}
 
@@ -72,13 +124,14 @@ def driver_tracking(request):
         request,
         'buses/driver_tracking.html',
         {
-            'buses': buses,
+            'bus': bus,
             'route_data': route_data,
         },
     )
 
 @login_required
 def update_bus_location(request):
+
     if request.method != 'POST':
         return JsonResponse(
             {
@@ -86,6 +139,22 @@ def update_bus_location(request):
                 'message': 'POST request required.'
             },
             status=405
+        )
+
+    # --------------------------------------------------
+    # DRIVER AUTHORIZATION
+    # --------------------------------------------------
+
+    if not request.user.groups.filter(
+        name='Drivers'
+    ).exists():
+
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'You are not authorized to update bus location.'
+            },
+            status=403
         )
 
     bus_id = request.POST.get('bus_id')
@@ -104,9 +173,14 @@ def update_bus_location(request):
             status=400
         )
 
+    # --------------------------------------------------
+    # ONLY THE DRIVER'S ASSIGNED BUS
+    # --------------------------------------------------
+
     bus = get_object_or_404(
         Bus,
-        id=bus_id
+        id=bus_id,
+        driver=request.user
     )
 
     location = (
@@ -115,12 +189,12 @@ def update_bus_location(request):
         .first()
     )
 
-
     # --------------------------------------------------
     # START A NEW TRACKING SESSION
     # --------------------------------------------------
 
     if location and not location.is_tracking:
+
         location.tracking_session_id = uuid.uuid4()
 
         location.current_route_stop = None
@@ -166,6 +240,7 @@ def update_bus_location(request):
     route = bus.current_route
 
     if route:
+
         stop_event = detect_stop_arrival_departure(
             location,
             route,
@@ -204,6 +279,7 @@ def update_bus_location(request):
 
 @login_required
 def stop_bus_tracking(request):
+
     if request.method != 'POST':
         return JsonResponse(
             {
@@ -211,6 +287,22 @@ def stop_bus_tracking(request):
                 'message': 'POST request required.'
             },
             status=405
+        )
+
+    # --------------------------------------------------
+    # DRIVER AUTHORIZATION
+    # --------------------------------------------------
+
+    if not request.user.groups.filter(
+        name='Drivers'
+    ).exists():
+
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'You are not authorized to stop bus tracking.'
+            },
+            status=403
         )
 
     bus_id = request.POST.get('bus_id')
@@ -224,9 +316,14 @@ def stop_bus_tracking(request):
             status=400
         )
 
+    # --------------------------------------------------
+    # ONLY THE DRIVER'S ASSIGNED BUS
+    # --------------------------------------------------
+
     bus = get_object_or_404(
         Bus,
-        id=bus_id
+        id=bus_id,
+        driver=request.user
     )
 
     location = BusLocation.objects.filter(
@@ -2183,6 +2280,22 @@ def set_bus_route(request):
             status=405
         )
 
+    # --------------------------------------------------
+    # DRIVER AUTHORIZATION
+    # --------------------------------------------------
+
+    if not request.user.groups.filter(
+        name='Drivers'
+    ).exists():
+
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'You are not authorized to control a bus.'
+            },
+            status=403
+        )
+
     bus_id = request.POST.get('bus_id')
     route_id = request.POST.get('route_id')
 
@@ -2195,9 +2308,14 @@ def set_bus_route(request):
             status=400
         )
 
+    # --------------------------------------------------
+    # ONLY THE DRIVER'S ASSIGNED BUS
+    # --------------------------------------------------
+
     bus = get_object_or_404(
         Bus,
-        id=bus_id
+        id=bus_id,
+        driver=request.user
     )
 
     route = get_object_or_404(

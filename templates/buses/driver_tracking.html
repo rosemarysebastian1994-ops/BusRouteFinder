@@ -204,49 +204,96 @@
 
                 <!-- BODY -->
 
+
+                {% if not bus %}
+
+                    <div class="alert alert-warning text-center">
+
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+
+                        <strong>No bus assigned.</strong>
+
+                        <div class="mt-2">
+                            Please contact the administrator
+                            to have a bus assigned to your account.
+                        </div>
+
+                    </div>
+
+                {% else %}
+
+                    <!-- existing driver tracking interface -->
+
                 <div class="tracking-body">
 
                     <!-- BUS SELECTION -->
 
+                    <!-- ASSIGNED BUS -->
+
                     <div class="mb-4">
 
-                        <label
-                            for="busSelect"
-                            class="form-label fw-semibold"
-                        >
-                            Select Bus
+                        <label class="form-label fw-semibold">
+                            <i class="bi bi-bus-front me-1"></i>
+                            Assigned Bus
                         </label>
 
-                        <select
-                            id="busSelect"
-                            class="form-select form-select-lg"
-                        >
+                        {% if bus %}
 
-                            <option value="">
-                                -- Select a bus --
-                            </option>
+                            <div class="alert alert-light border mb-0">
 
-                            {% for bus in buses %}
+                                <div class="d-flex align-items-center">
 
-                                <option
-                                    value="{{ bus.id }}"
-                                    data-current-route-id="{{ bus.current_route_id|default:'' }}"
-                                >
-                                    {{ bus.bus_number }}
-                                    -
-                                    {{ bus.bus_name }}
-                                </option>
+                                    <i class="bi bi-bus-front-fill fs-4 me-3"></i>
 
-                            {% endfor %}
+                                    <div>
 
-                        </select>
+                                        <div class="fw-semibold">
+                                            {{ bus.bus_number }} - {{ bus.bus_name }}
+                                        </div>
+
+                                        <small class="text-muted">
+                                            {{ bus.bus_type }}
+                                            {% if bus.operator %}
+                                                · {{ bus.operator }}
+                                            {% endif %}
+                                        </small>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <input
+                                type="hidden"
+                                id="assignedBusId"
+                                value="{{ bus.id }}"
+                            >
+
+                        {% else %}
+
+                            <div class="alert alert-warning mb-0">
+
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+
+                                No bus has been assigned to your account yet.
+
+                            </div>
+
+                            <input
+                                type="hidden"
+                                id="assignedBusId"
+                                value=""
+                            >
+
+                        {% endif %}
 
                     </div>
 
                     <div class="mb-3">
-                        <label for="routeSelect" class="form-label">
+                        <label for="routeSelect" class="form-label fw-semibold">
                             <i class="bi bi-signpost-2 me-1"></i>
-                            Select Route
+                            Current Route
                         </label>
 
                         <select
@@ -255,12 +302,13 @@
                             disabled
                         >
                             <option value="">
-                                Select a bus first
+                                Select a route
                             </option>
                         </select>
 
                         <div class="form-text">
-                            Select the route this bus is currently operating.
+                            This is the route currently assigned to your bus.
+                            You can change it before starting tracking.
                         </div>
                     </div>
 
@@ -377,7 +425,7 @@
                             id="statusMessage"
                             class="text-muted d-block mt-2"
                         >
-                            Select a bus and click
+                            Select a route and click
                             "Start Tracking".
                         </small>
 
@@ -524,7 +572,7 @@
                     </div>
 
                 </div>
-
+                {% endif %}
             </div>
 
         </div>
@@ -556,11 +604,16 @@ document.addEventListener(
     'DOMContentLoaded',
     function () {
 
-        const busSelect =
-            document.getElementById('busSelect');
+        const assignedBusIdElement =
+            document.getElementById('assignedBusId');
 
         const routeSelect =
             document.getElementById('routeSelect');
+
+        const assignedBusId =
+            assignedBusIdElement
+                ? assignedBusIdElement.value
+                : '';
 
         const simulationMode =
             document.getElementById('simulationMode');
@@ -873,7 +926,7 @@ document.addEventListener(
             heading
         ) {
             const busId =
-                busSelect.value;
+                assignedBusId;
 
             if (!busId) {
                 return false;
@@ -1099,7 +1152,7 @@ document.addEventListener(
 
                 return;
             }
-            
+
             let latitude;
             let longitude;
             let heading;
@@ -1523,7 +1576,7 @@ document.addEventListener(
         async function startSimulation() {
 
             const busId =
-                busSelect.value;
+                assignedBusId;
 
             const routeId =
                 routeSelect.value;
@@ -1531,7 +1584,7 @@ document.addEventListener(
             if (!busId) {
 
                 showMessage(
-                    'Please select a bus first.',
+                    'No bus has been assigned to your account.',
                     'warning'
                 );
 
@@ -1610,8 +1663,6 @@ document.addEventListener(
 
             stopButton.disabled = false;
 
-            busSelect.disabled = true;
-
             routeSelect.disabled = true;
 
             simulationMode.disabled = true;
@@ -1683,7 +1734,7 @@ document.addEventListener(
             }
 
             const busId =
-                busSelect.value;
+                assignedBusId;
 
             if (busId) {
 
@@ -1729,8 +1780,6 @@ document.addEventListener(
 
             stopButton.disabled = true;
 
-            busSelect.disabled = false;
-
             routeSelect.disabled = false;
 
             simulationMode.disabled = false;
@@ -1739,7 +1788,7 @@ document.addEventListener(
                 'Tracking is not active';
 
             statusMessage.textContent =
-                'Select a bus and click "Start Tracking".';
+                'Select a route and click "Start Tracking".';
 
             statusIndicator.classList.remove(
                 'active'
@@ -1763,7 +1812,7 @@ document.addEventListener(
                         'Start Simulation';
 
                     statusMessage.textContent =
-                        'Select a bus and route, then click "Start Simulation".';
+                        'Select a route, then click "Start Simulation".';
 
                 } else {
 
@@ -1772,7 +1821,7 @@ document.addEventListener(
                         'Start Tracking';
 
                     statusMessage.textContent =
-                        'Select a bus and click "Start Tracking".';
+                        'Select a route and click "Start Tracking".';
                 }
             }
         );
@@ -1861,30 +1910,20 @@ document.addEventListener(
         function updateRouteOptions() {
 
             const selectedBusId =
-                busSelect.value;
-
-            console.log(
-                'Selected bus:',
-                selectedBusId
-            );
+                assignedBusId;
 
             if (!selectedBusId) {
 
                 routeSelect.disabled = true;
 
                 routeSelect.innerHTML =
-                    '<option value="">Select a bus first</option>';
+                    '<option value="">No bus assigned</option>';
 
                 return;
             }
 
             const busRoutes =
                 routeData[selectedBusId];
-
-            console.log(
-                'Routes for selected bus:',
-                busRoutes
-            );
 
             if (
                 !busRoutes ||
@@ -1914,35 +1953,25 @@ document.addEventListener(
                     option.textContent =
                         route.routeName;
 
-                    routeSelect.appendChild(
-                        option
-                    );
+                    routeSelect.appendChild(option);
                 }
             );
 
-            routeSelect.disabled = false;
-
-            const selectedBusOption =
-                busSelect.options[
-                    busSelect.selectedIndex
-                ];
-
             const currentRouteId =
-                selectedBusOption.dataset.currentRouteId;
+                "{{ bus.current_route_id|default:'' }}";
 
             if (
                 currentRouteId &&
                 busRoutes[currentRouteId]
             ) {
+
                 routeSelect.value =
                     currentRouteId;
-            }
-        }
 
-        busSelect.addEventListener(
-            'change',
-            updateRouteOptions
-        );
+            }
+
+            routeSelect.disabled = false;
+        }
 
         updateRouteOptions();
 
@@ -1959,12 +1988,16 @@ document.addEventListener(
             }
 
             const busId =
-                busSelect.value;
+                assignedBusId;
 
             if (!busId) {
 
-                return;
+                showMessage(
+                    'No bus has been assigned to your account.',
+                    'warning'
+                );
 
+                return;
             }
 
 
@@ -2191,9 +2224,6 @@ document.addEventListener(
 
         }
 
-
-        updateRouteOptions();
-
         // ----------------------------------------------------
         // START TRACKING
         // ----------------------------------------------------
@@ -2203,7 +2233,7 @@ document.addEventListener(
             async function () {
 
                 const busId =
-                    busSelect.value;
+                    assignedBusId;
 
                 const routeId =
                     routeSelect.value;
@@ -2216,7 +2246,7 @@ document.addEventListener(
                 if (!busId) {
 
                     showMessage(
-                        'Please select a bus first.',
+                        'No bus has been assigned to your account.',
                         'warning'
                     );
 
@@ -2360,9 +2390,6 @@ document.addEventListener(
                 stopButton.disabled =
                     false;
 
-                busSelect.disabled =
-                    true;
-
                 routeSelect.disabled =
                     true;
 
@@ -2406,10 +2433,10 @@ document.addEventListener(
 
             isTracking = false;
 
-            const busId = busSelect.value;
+            const busId = assignedBusId;
 
             if (!busId) {
-                statusMessage.textContent = 'Please select a bus first.';
+                statusMessage.textContent = 'No bus has been assigned to your account.';
                 return;
             }
 

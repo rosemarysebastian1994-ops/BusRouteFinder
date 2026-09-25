@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 import uuid
 
 # Create your models here.
@@ -21,6 +22,29 @@ class Bus(models.Model):
         default='ORDINARY'
     )
     operator = models.CharField(max_length=100, blank=True)
+
+    photo = models.ImageField(
+        upload_to='buses/',
+        blank=True,
+        null=True
+    )
+
+    fare = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=0
+    )
+
+    driver = models.OneToOneField(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_bus',
+        limit_choices_to={
+            'groups__name': 'Drivers'
+        }
+    )
 
     current_route = models.ForeignKey(
         'routes.Route',

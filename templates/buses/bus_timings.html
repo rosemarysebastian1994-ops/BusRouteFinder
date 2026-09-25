@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="container py-5">
+
+    <div class="row justify-content-center">
+
+        <div class="col-lg-10">
+
+            <div class="d-flex justify-content-between
+                        align-items-center mb-4">
+
+                <div>
+                    <h2 class="mb-1">
+                        {{ bus.bus_name }}
+                    </h2>
+
+                    <p class="text-muted mb-0">
+                        {{ bus.bus_number }}
+                    </p>
+                </div>
+
+                <a
+                    href="{% url 'buses:bus_detail' bus.id %}"
+                    class="btn btn-black btn-outline-black"
+                >
+                    View Bus
+                </a>
+
+            </div>
+
+
+            {% if schedules %}
+
+                <div class="table-responsive">
+
+                    <table class="table table-bordered
+                                  table-hover align-middle">
+
+                        <thead class="table-light">
+
+                            <tr>
+
+                                <th>
+                                    Route
+                                </th>
+
+                                <th>
+                                    Day
+                                </th>
+
+                                <th>
+                                    Departure
+                                </th>
+
+                                <th>
+                                    Arrival
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                            {% for schedule in schedules %}
+
+                                <tr>
+
+                                    <td>
+                                        {{ schedule.route }}
+                                    </td>
+
+                                    <td>
+                                        {{ schedule.get_day_display }}
+                                    </td>
+
+                                    <td>
+                                        {{ schedule.departure_time|time:"H:i" }}
+                                    </td>
+
+                                    <td>
+
+                                        {% if schedule.arrival_time %}
+
+                                            {{ schedule.arrival_time|time:"H:i" }}
+
+                                        {% else %}
+
+                                            —
+                                            
+                                        {% endif %}
+
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            {% else %}
+
+                <div class="alert alert-info text-center">
+
+                    No timings are currently available
+                    for this bus.
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

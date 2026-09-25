@@ -2,7 +2,22 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 
+from .models import Profile
+
+
 class RegisterForm(UserCreationForm):
+
+    ROLE_CHOICES = [
+        ('driver', 'Driver'),
+        ('passenger', 'Passenger'),
+    ]
+
+    role = forms.ChoiceField(
+        choices=ROLE_CHOICES,
+        widget=forms.RadioSelect,
+        required=True,
+        label='Register as'
+    )
 
     email = forms.EmailField(
         required=True,
@@ -41,6 +56,7 @@ class RegisterForm(UserCreationForm):
             'first_name',
             'last_name',
             'email',
+            'role',
             'password1',
             'password2',
         ]
@@ -62,8 +78,6 @@ class RegisterForm(UserCreationForm):
             'class': 'form-control',
             'placeholder': 'Confirm your password'
         })
-
-from .models import Profile
 
 class UserProfileForm(forms.ModelForm):
 

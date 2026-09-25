@@ -291,18 +291,26 @@
         <div class="row">
 
 
-            <!-- Route 1 -->
+            <!-- Buses -->
+            {% for bus in buses %}
+
             <div class="col-lg-3 col-md-6 mb-4">
 
                 <div class="car-wrap ftco-animate">
 
-                    <div class="img d-flex align-items-end"
-                         style="background-image: url('{% static 'images/car-1.jpg' %}');">
+                    <div
+                        class="img d-flex align-items-end"
+                        {% if bus.photo %}
+                            style="background-image: url('{{ bus.photo.url }}');"
+                        {% else %}
+                            style="background-image: url('{% static 'images/car-1.jpg' %}');"
+                        {% endif %}
+                    >
 
                         <div class="price-wrap d-flex">
 
                             <span class="rate">
-                                ₹25
+                                ₹{{ bus.fare }}
                             </span>
 
                             <p class="from-day">
@@ -319,89 +327,32 @@
 
                         <h2 class="mb-2">
                             <a href="#">
-                                Kochi to Aluva
+                                {{ bus.bus_name }}
                             </a>
                         </h2>
 
                         <span>
-                            Via Edappally
+                            {{ bus.bus_number }}
                         </span>
 
-                        <p class="mt-3 mb-3">
-                            Frequent buses available throughout
-                            the day.
+                        <p class="mt-2 mb-2">
+                            {{ bus.get_bus_type_display }}
                         </p>
 
-                        <p class="d-flex mb-0 d-block">
-
-                            <a href="#"
-                               class="btn btn-black btn-outline-black me-1">
-                                View Route
-                            </a>
-
-                            <a href="#"
-                               class="btn btn-black btn-outline-black ms-1">
-                                Timings
-                            </a>
-
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <!-- Route 2 -->
-            <div class="col-lg-3 col-md-6 mb-4">
-
-                <div class="car-wrap ftco-animate">
-
-                    <div class="img d-flex align-items-end"
-                         style="background-image: url('{% static 'images/car-2.jpg' %}');">
-
-                        <div class="price-wrap d-flex">
-
-                            <span class="rate">
-                                ₹30
-                            </span>
-
-                            <p class="from-day">
-                                <span>Approx.</span>
-                                <span>Fare</span>
+                        {% if bus.operator %}
+                            <p class="mb-3">
+                                {{ bus.operator }}
                             </p>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="text p-4 text-center">
-
-                        <h2 class="mb-2">
-                            <a href="#">
-                                Aluva to Kakkanad
-                            </a>
-                        </h2>
-
-                        <span>
-                            Via Edappally
-                        </span>
-
-                        <p class="mt-3 mb-3">
-                            Convenient route for students
-                            and daily commuters.
-                        </p>
+                        {% endif %}
 
                         <p class="d-flex mb-0 d-block">
 
-                            <a href="#"
+                            <a href="{% url 'buses:bus_detail' bus.id %}"
                                class="btn btn-black btn-outline-black me-1">
-                                View Route
+                                View Bus
                             </a>
 
-                            <a href="#"
+                            <a href="{% url 'buses:bus_timings' bus.id %}"
                                class="btn btn-black btn-outline-black ms-1">
                                 Timings
                             </a>
@@ -414,130 +365,18 @@
 
             </div>
 
+            {% empty %}
 
-            <!-- Route 3 -->
-            <div class="col-lg-3 col-md-6 mb-4">
+            <div class="col-12">
 
-                <div class="car-wrap ftco-animate">
-
-                    <div class="img d-flex align-items-end"
-                         style="background-image: url('{% static 'images/car-3.jpg' %}');">
-
-                        <div class="price-wrap d-flex">
-
-                            <span class="rate">
-                                ₹35
-                            </span>
-
-                            <p class="from-day">
-                                <span>Approx.</span>
-                                <span>Fare</span>
-                            </p>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="text p-4 text-center">
-
-                        <h2 class="mb-2">
-                            <a href="#">
-                                Ernakulam to Tripunithura
-                            </a>
-                        </h2>
-
-                        <span>
-                            Via Vyttila
-                        </span>
-
-                        <p class="mt-3 mb-3">
-                            Popular route connecting major
-                            city areas.
-                        </p>
-
-                        <p class="d-flex mb-0 d-block">
-
-                            <a href="#"
-                               class="btn btn-black btn-outline-black me-1">
-                                View Route
-                            </a>
-
-                            <a href="#"
-                               class="btn btn-black btn-outline-black ms-1">
-                                Timings
-                            </a>
-
-                        </p>
-
-                    </div>
-
+                <div class="alert alert-info text-center">
+                    No buses available.
                 </div>
 
             </div>
 
-
-            <!-- Route 4 -->
-            <div class="col-lg-3 col-md-6 mb-4">
-
-                <div class="car-wrap ftco-animate">
-
-                    <div class="img d-flex align-items-end"
-                         style="background-image: url('{% static 'images/car-4.jpg' %}');">
-
-                        <div class="price-wrap d-flex">
-
-                            <span class="rate">
-                                ₹40
-                            </span>
-
-                            <p class="from-day">
-                                <span>Approx.</span>
-                                <span>Fare</span>
-                            </p>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="text p-4 text-center">
-
-                        <h2 class="mb-2">
-                            <a href="#">
-                                Kochi to Fort Kochi
-                            </a>
-                        </h2>
-
-                        <span>
-                            Via Mattancherry
-                        </span>
-
-                        <p class="mt-3 mb-3">
-                            A popular route for commuters
-                            and visitors.
-                        </p>
-
-                        <p class="d-flex mb-0 d-block">
-
-                            <a href="#"
-                               class="btn btn-black btn-outline-black me-1">
-                                View Route
-                            </a>
-
-                            <a href="#"
-                               class="btn btn-black btn-outline-black ms-1">
-                                Timings
-                            </a>
-
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </div>
-
+            {% endfor %}
+            
         </div>
 
 
