@@ -781,7 +781,18 @@ def routes_list(request):
     )
 
 def stops_list(request):
+
+    search = request.GET.get(
+        'search',
+        ''
+    ).strip()
+
     stops = Stop.objects.order_by('name')
+
+    if search:
+        stops = stops.filter(
+            name__icontains=search
+        )
 
     favourite_stop_ids = set()
 
@@ -798,6 +809,7 @@ def stops_list(request):
         {
             'stops': stops,
             'favourite_stop_ids': favourite_stop_ids,
+            'search': search,
         }
     )
 
