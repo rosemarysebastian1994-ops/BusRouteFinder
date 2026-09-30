@@ -87,6 +87,90 @@ document.addEventListener(
 
 
         // =====================================================
+        // UPDATE DESTINATION OPTIONS
+        // =====================================================
+
+        function updateDestinationOptions() {
+
+            const sourceId =
+                sourceField.value;
+
+
+            destinationField.innerHTML = '';
+
+
+            destinationField.appendChild(
+                new Option(
+                    'Select destination',
+                    ''
+                )
+            );
+
+
+            if (!sourceId) {
+                return;
+            }
+
+
+            const sourceStop =
+                routeStops.find(
+                    function (stop) {
+
+                        return String(
+                            stop.id
+                        ) === String(
+                            sourceId
+                        );
+
+                    }
+                );
+
+
+            if (!sourceStop) {
+                return;
+            }
+
+
+            const sourceOrder =
+                Number(
+                    sourceStop.order
+                );
+
+
+            routeStops.forEach(
+                function (stop) {
+
+                    const stopOrder =
+                        Number(
+                            stop.order
+                        );
+
+
+                    if (
+                        stopOrder >
+                        sourceOrder
+                    ) {
+
+                        destinationField.appendChild(
+                            new Option(
+                                `${stop.order}. ${stop.name}`,
+                                stop.id
+                            )
+                        );
+
+                    }
+
+                }
+            );
+
+
+            // Make sure no previous destination remains selected.
+            destinationField.value = '';
+
+        }
+
+
+        // =====================================================
         // CALCULATE FARE
         // =====================================================
 
@@ -432,14 +516,6 @@ document.addEventListener(
                             )
                         );
 
-
-                        destinationField.appendChild(
-                            new Option(
-                                `${stop.order}. ${stop.name}`,
-                                stop.id
-                            )
-                        );
-
                     }
                 );
 
@@ -479,6 +555,8 @@ document.addEventListener(
         sourceField.addEventListener(
             'change',
             function () {
+
+                updateDestinationOptions();
 
                 calculateFare();
 

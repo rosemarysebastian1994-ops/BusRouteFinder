@@ -2694,6 +2694,18 @@ def calculate_booking_fare(request):
             status=400
         )
 
+    if destination_stop.stop_order <= source_stop.stop_order:
+        return JsonResponse(
+            {
+                'success': False,
+                'message': (
+                    'Destination stop must come after '
+                    'the source stop.'
+                )
+            },
+            status=400
+        )
+
     try:
 
         fare = calculate_route_fare(
