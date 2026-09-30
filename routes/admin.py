@@ -2,7 +2,7 @@ from django.contrib import admin
 
 # Register your models here.
 
-from .models import Route, Stop, RouteStop, BusSchedule
+from .models import Route, Stop, RouteStop, BusSchedule, Fare
 
 @admin.register(Route)
 class RouteAdmin(admin.ModelAdmin):
@@ -42,6 +42,8 @@ class RouteStopAdmin(admin.ModelAdmin):
         'route',
         'stop',
         'stop_order',
+        'distance_from_start_km',
+        'travel_time_minutes',
     )
 
     list_filter = (
@@ -82,4 +84,29 @@ class BusScheduleAdmin(admin.ModelAdmin):
     ordering = (
         'day_order',
         'departure_time',
+    )
+
+@admin.register(Fare)
+class FareAdmin(admin.ModelAdmin):
+
+    list_display = (
+        'route',
+        'min_distance_km',
+        'max_distance_km',
+        'amount',
+        'is_active',
+    )
+
+    list_filter = (
+        'route',
+        'is_active',
+    )
+
+    search_fields = (
+        'route__route_name',
+    )
+
+    ordering = (
+        'route',
+        'min_distance_km',
     )

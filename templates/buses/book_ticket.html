@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<script>
+    const bookingStopsUrl =
+        "{% url 'buses:booking_schedule_stops' %}";
+
+    const bookingFareUrl =
+        "{% url 'buses:calculate_booking_fare' %}";
+</script>
+
+<script src="{% static 'buses/js/book_ticket.js' %}"></script>
+
+<section class="ftco-section">
+    <div class="container">
+
+        <div class="row justify-content-center">
+
+            <div class="col-md-8">
+
+                <div class="heading-section text-center mb-5">
+
+                    <h2 class="mb-3">
+                        Book Bus Ticket
+                    </h2>
+
+                    <p>
+                        Select your journey details and book your ticket.
+                    </p>
+
+                </div>
+
+
+                <div class="card">
+
+                    <div class="card-body p-4">
+
+                        <form method="post">
+
+                            {% csrf_token %}
+
+
+                            {% if form.non_field_errors %}
+
+                                <div class="alert alert-danger">
+
+                                    {{ form.non_field_errors }}
+
+                                </div>
+
+                            {% endif %}
+
+
+                            <div class="form-group">
+
+                                <label for="id_schedule">
+                                    Bus Schedule
+                                </label>
+
+                                {{ form.schedule }}
+
+                                {% if form.schedule.errors %}
+
+                                    <div class="text-danger">
+                                        {{ form.schedule.errors }}
+                                    </div>
+
+                                {% endif %}
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="id_journey_date">
+                                    Journey Date
+                                </label>
+
+                                {{ form.journey_date }}
+
+                                {% if form.journey_date.errors %}
+
+                                    <div class="text-danger">
+                                        {{ form.journey_date.errors }}
+                                    </div>
+
+                                {% endif %}
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="id_source_stop">
+                                    From
+                                </label>
+
+                                {{ form.source_stop }}
+
+                                {% if form.source_stop.errors %}
+
+                                    <div class="text-danger">
+                                        {{ form.source_stop.errors }}
+                                    </div>
+
+                                {% endif %}
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="id_destination_stop">
+                                    To
+                                </label>
+
+                                {{ form.destination_stop }}
+
+                                {% if form.destination_stop.errors %}
+
+                                    <div class="text-danger">
+                                        {{ form.destination_stop.errors }}
+                                    </div>
+
+                                {% endif %}
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="id_passenger_count">
+                                    Number of Passengers
+                                </label>
+
+                                {{ form.passenger_count }}
+
+                                {% if form.passenger_count.errors %}
+
+                                    <div class="text-danger">
+                                        {{ form.passenger_count.errors }}
+                                    </div>
+
+                                {% endif %}
+
+                            </div>
+
+
+                            <div
+                                id="fare-section"
+                                class="alert alert-info"
+                                style="display: none;"
+                            >
+
+                                <strong>
+                                    Fare per passenger:
+                                </strong>
+
+                                ₹<span id="fare-per-passenger">
+                                    0.00
+                                </span>
+
+                                <br>
+
+                                <strong>
+                                    Total Fare:
+                                </strong>
+
+                                ₹<span id="total-fare">
+                                    0.00
+                                </span>
+
+                            </div>
+
+
+                            <button
+                                type="submit"
+                                class="btn btn-primary btn-block"
+                            >
+
+                                <i class="bi bi-ticket-perforated"></i>
+
+                                Book Ticket
+
+                            </button>
+
+
+                        </form>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+</section>
+
+{% endblock %}
+

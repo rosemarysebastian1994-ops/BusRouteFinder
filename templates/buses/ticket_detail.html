@@ -1,0 +1,423 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% if messages %}
+
+{% for message in messages %}
+
+    <div class="alert alert-{{ message.tags }}">
+        {{ message }}
+    </div>
+
+{% endfor %}
+
+{% endif %}
+
+<section class="ftco-section">
+
+<div class="container">
+
+    <div class="row justify-content-center">
+
+        <div class="col-md-8">
+
+            <div class="card">
+
+                <div class="card-body p-4">
+
+                    <!-- Ticket Status -->
+
+                    <div class="text-center mb-4">
+
+                        {% if ticket.status == 'CONFIRMED' %}
+
+                            <i
+                                class="bi bi-check-circle"
+                                style="font-size: 50px;"
+                            ></i>
+
+                            <h2 class="mt-3">
+                                Ticket Confirmed
+                            </h2>
+
+                            <span class="badge badge-success">
+                                Confirmed
+                            </span>
+
+                            <p class="mt-3">
+                                Your bus ticket has been confirmed successfully.
+                            </p>
+
+
+                        {% elif ticket.status == 'PAYMENT_PENDING' %}
+
+                            {% if ticket.payment.status == 'FAILED' %}
+
+                                <i
+                                    class="bi bi-exclamation-circle"
+                                    style="font-size: 50px;"
+                                ></i>
+
+                                <h2 class="mt-3">
+                                    Payment Failed
+                                </h2>
+
+                                <span class="badge badge-danger">
+                                    Payment Failed
+                                </span>
+
+                                <p class="mt-3">
+                                    Your payment was not successful.
+                                    Please retry the payment to confirm your ticket.
+                                </p>
+
+                            {% else %}
+
+                                <i
+                                    class="bi bi-credit-card"
+                                    style="font-size: 50px;"
+                                ></i>
+
+                                <h2 class="mt-3">
+                                    Payment Pending
+                                </h2>
+
+                                <span class="badge badge-warning">
+                                    Payment Pending
+                                </span>
+
+                                <p class="mt-3">
+                                    Your ticket has been reserved.
+                                    Please complete the payment to confirm your ticket.
+                                </p>
+
+                            {% endif %}
+
+
+                        {% elif ticket.status == 'CANCELLED' %}
+
+                            <i
+                                class="bi bi-x-circle"
+                                style="font-size: 50px;"
+                            ></i>
+
+                            <h2 class="mt-3">
+                                Ticket Cancelled
+                            </h2>
+
+                            <span class="badge badge-danger">
+                                Cancelled
+                            </span>
+
+                            <p class="mt-3">
+                                This ticket has been cancelled.
+                            </p>
+
+
+                        {% elif ticket.status == 'COMPLETED' %}
+
+                            <i
+                                class="bi bi-check2-all"
+                                style="font-size: 50px;"
+                            ></i>
+
+                            <h2 class="mt-3">
+                                Journey Completed
+                            </h2>
+
+                            <span class="badge badge-secondary">
+                                Completed
+                            </span>
+
+                            <p class="mt-3">
+                                Your journey has been completed.
+                            </p>
+
+                        {% endif %}
+
+                    </div>
+
+
+                    <hr>
+
+
+                    <!-- Ticket Information -->
+
+                    <h5 class="mb-3">
+                        <i class="bi bi-ticket-perforated"></i>
+                        Ticket Information
+                    </h5>
+
+
+                    <p>
+                        <strong>Ticket Number:</strong>
+                        {{ ticket.ticket_number }}
+                    </p>
+
+
+                    <p>
+                        <strong>Bus:</strong>
+                        {{ ticket.schedule.route.bus.bus_name }}
+                        ({{ ticket.schedule.route.bus.bus_number }})
+                    </p>
+
+
+                    <p>
+                        <strong>Route:</strong>
+                        {{ ticket.schedule.route.route_name }}
+                    </p>
+
+
+                    <p>
+                        <strong>Journey Date:</strong>
+                        {{ ticket.journey_date }}
+                    </p>
+
+
+                    <p>
+                        <strong>Departure:</strong>
+                        {{ ticket.schedule.departure_time }}
+                    </p>
+
+
+                    <p>
+                        <strong>From:</strong>
+                        {{ ticket.source_stop.stop.name }}
+                    </p>
+
+
+                    <p>
+                        <strong>To:</strong>
+                        {{ ticket.destination_stop.stop.name }}
+                    </p>
+
+
+                    <p>
+                        <strong>Passengers:</strong>
+                        {{ ticket.passenger_count }}
+                    </p>
+
+
+                    <hr>
+
+
+                    <!-- Fare Information -->
+
+                    <h5 class="mb-3">
+                        <i class="bi bi-currency-rupee"></i>
+                        Fare Information
+                    </h5>
+
+
+                    <p>
+                        <strong>Fare per Passenger:</strong>
+                        ₹{{ ticket.fare_per_passenger }}
+                    </p>
+
+
+                    <h4 class="mt-3">
+                        Total:
+                        ₹{{ ticket.total_amount }}
+                    </h4>
+
+
+                    <!-- Payment Information -->
+
+                    {% if ticket.payment %}
+
+                        <hr>
+
+                        <h5 class="mb-3">
+                            <i class="bi bi-credit-card"></i>
+                            Payment Information
+                        </h5>
+
+
+                        {% if ticket.payment.status == 'PAID' %}
+
+                            <p>
+                                <strong>Payment Status:</strong>
+
+                                <span class="badge badge-success">
+                                    Paid
+                                </span>
+                            </p>
+
+                        {% elif ticket.payment.status == 'FAILED' %}
+
+                            <p>
+                                <strong>Payment Status:</strong>
+
+                                <span class="badge badge-danger">
+                                    Failed
+                                </span>
+                            </p>
+
+                        {% elif ticket.payment.status == 'CREATED' %}
+
+                            <p>
+                                <strong>Payment Status:</strong>
+
+                                <span class="badge badge-warning">
+                                    Pending
+                                </span>
+                            </p>
+
+                        {% elif ticket.payment.status == 'REFUNDED' %}
+
+                            <p>
+                                <strong>Payment Status:</strong>
+
+                                <span class="badge badge-secondary">
+                                    Refunded
+                                </span>
+                            </p>
+
+                        {% endif %}
+
+                    {% endif %}
+
+
+                    <!-- Actions -->
+
+                    <div class="mt-4">
+
+
+                        {% if ticket.status == 'PAYMENT_PENDING' %}
+
+                            {% if ticket.payment.status == 'CREATED' %}
+
+                                <a
+                                    href="{% url 'buses:ticket_payment' ticket.id %}"
+                                    class="btn btn-warning"
+                                >
+                                    <i class="bi bi-credit-card"></i>
+                                    Make Payment
+                                </a>
+
+                            {% elif ticket.payment.status == 'FAILED' %}
+
+                                <a
+                                    href="{% url 'buses:ticket_payment' ticket.id %}"
+                                    class="btn btn-warning"
+                                >
+                                    <i class="bi bi-arrow-repeat"></i>
+                                    Retry Payment
+                                </a>
+
+                            {% endif %}
+
+                        {% endif %}
+
+
+                        {% if ticket.status == 'CONFIRMED' %}
+
+                            <a
+                                href="{% url 'buses:download_ticket' ticket.id %}"
+                                class="btn btn-success"
+                            >
+                                <i class="bi bi-download"></i>
+                                Download PDF
+                            </a>
+
+
+                            <button
+                                type="button"
+                                class="btn btn-info"
+                                onclick="window.print()"
+                            >
+                                <i class="bi bi-printer"></i>
+                                Print Ticket
+                            </button>
+
+                        {% endif %}
+
+
+                        <a
+                            href="{% url 'buses:my_tickets' %}"
+                            class="btn btn-primary"
+                        >
+                            <i class="bi bi-ticket-perforated"></i>
+                            My Tickets
+                        </a>
+
+
+                        <a
+                            href="{% url 'core:home' %}"
+                            class="btn btn-secondary"
+                        >
+                            Back to Home
+                        </a>
+
+
+                        {% if ticket.status == 'CONFIRMED' %}
+
+                            <form
+                                method="post"
+                                action="{% url 'buses:cancel_ticket' ticket.id %}"
+                                class="d-inline"
+                                onsubmit="return confirm('Are you sure you want to cancel this ticket?');"
+                            >
+
+                                {% csrf_token %}
+
+                                <button
+                                    type="submit"
+                                    class="btn btn-danger"
+                                >
+                                    <i class="bi bi-x-circle"></i>
+                                    Cancel Ticket
+                                </button>
+
+                            </form>
+
+                        {% endif %}
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</section>
+
+<style>
+
+@media print {
+
+    nav,
+    footer,
+    .navbar,
+    .ftco-footer,
+    button,
+    .btn {
+        display: none !important;
+    }
+
+    body {
+        background: white !important;
+    }
+
+    .card {
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+    }
+
+    .container {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+}
+
+</style>
+
+{% endblock %}

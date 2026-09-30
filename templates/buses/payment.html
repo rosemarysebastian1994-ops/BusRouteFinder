@@ -1,0 +1,338 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<section class="ftco-section">
+
+    <div class="container">
+
+        <div class="row justify-content-center">
+
+            <div class="col-md-8">
+
+                <div class="card shadow-sm">
+
+                    <div class="card-body">
+
+                        <h3 class="mb-4">
+                            Complete Payment
+                        </h3>
+
+                        <div class="mb-4">
+
+                            <p>
+                                <strong>Ticket:</strong>
+                                {{ ticket.ticket_number }}
+                            </p>
+
+                            <p>
+                                <strong>Route:</strong>
+                                {{ ticket.schedule.route.route_name }}
+                            </p>
+
+                            <p>
+                                <strong>From:</strong>
+                                {{ ticket.source_stop.stop.name }}
+                            </p>
+
+                            <p>
+                                <strong>To:</strong>
+                                {{ ticket.destination_stop.stop.name }}
+                            </p>
+
+                            <p>
+                                <strong>Passengers:</strong>
+                                {{ ticket.passenger_count }}
+                            </p>
+
+                            <h4 class="mt-4">
+                                Total:
+                                ₹{{ ticket.total_amount }}
+                            </h4>
+
+                        </div>
+
+                        <div
+                            id="payment-message"
+                            class="alert"
+                            style="display: none;"
+                        >
+                        </div>
+
+                        <button
+                            type="button"
+                            id="pay-button"
+                            class="btn btn-primary btn-block"
+                        >
+                            <i class="bi bi-credit-card"></i>
+                            Pay ₹{{ ticket.total_amount }}
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+
+    const options = {
+
+        key: "{{ razorpay_key_id }}",
+
+        amount: "{{ payment.amount|floatformat:2 }}".replace(
+            '.',
+            ''
+        ),
+
+        currency: "{{ payment.currency }}",
+
+        name: "Bus Route Finder",
+
+        description: "Bus Ticket Payment",
+
+        order_id: "{{ payment.razorpay_order_id }}",
+
+        handler: function (response) {
+
+            verifyPayment(response);
+
+        },
+
+        modal: {
+
+            ondismiss: function () {
+
+                showPaymentMessage(
+                    'Payment window closed. '
+                    + 'Your ticket is still pending payment.',
+                    'warning'
+                );
+
+            }
+
+        },
+
+        theme: {
+            color: "#007bff"
+        }
+
+    };
+
+
+    const razorpay =
+        new Razorpay(options);
+
+
+    // =================================================
+    // PAYMENT FAILED
+    // =================================================
+
+    razorpay.on(
+        'payment.failed',
+        function (response) {
+
+            console.error(
+                'Payment failed:',
+                response
+            );
+
+            const errorDescription =
+                response.error &&
+                response.error.description
+                    ? response.error.description
+                    : 'Payment could not be completed.';
+
+            const formData =
+                new FormData();
+
+            formData.append(
+                'razorpay_order_id',
+                "{{ payment.razorpay_order_id }}"
+            );
+
+            formData.append(
+                'error_description',
+                errorDescription
+            );
+
+            formData.append(
+                'csrfmiddlewaretoken',
+                '{{ csrf_token }}'
+            );
+
+            fetch(
+                "{% url 'buses:payment_failure' %}",
+                {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With':
+                            'XMLHttpRequest'
+                    }
+                }
+            )
+            .catch(function (error) {
+
+                console.error(
+                    'Unable to record payment failure:',
+                    error
+                );
+
+            });
+
+            showPaymentMessage(
+                errorDescription,
+                'danger'
+            );
+
+        }
+    );
+
+
+    // =================================================
+    // OPEN CHECKOUT
+    // =================================================
+
+    document
+        .getElementById('pay-button')
+        .addEventListener(
+            'click',
+            function (event) {
+
+                event.preventDefault();
+
+                razorpay.open();
+
+            }
+        );
+
+
+    // =================================================
+    // VERIFY PAYMENT
+    // =================================================
+
+    function verifyPayment(response) {
+
+        const formData =
+            new FormData();
+
+        formData.append(
+            'razorpay_payment_id',
+            response.razorpay_payment_id
+        );
+
+        formData.append(
+            'razorpay_order_id',
+            response.razorpay_order_id
+        );
+
+        formData.append(
+            'razorpay_signature',
+            response.razorpay_signature
+        );
+
+        formData.append(
+            'csrfmiddlewaretoken',
+            '{{ csrf_token }}'
+        );
+
+        showPaymentMessage(
+            'Verifying payment...',
+            'info'
+        );
+
+        fetch(
+            "{% url 'buses:verify_payment' %}",
+            {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With':
+                        'XMLHttpRequest'
+                }
+            }
+        )
+        .then(function (response) {
+
+            return response.json();
+
+        })
+        .then(function (data) {
+
+            if (data.success) {
+
+                window.location.href =
+                    "{% url 'buses:ticket_detail' 0 %}"
+                    .replace(
+                        '/0/',
+                        '/' + data.ticket_id + '/'
+                    );
+
+                return;
+            }
+
+            showPaymentMessage(
+                data.message ||
+                'Payment verification failed.',
+                'danger'
+            );
+
+        })
+        .catch(function (error) {
+
+            console.error(
+                'Payment verification error:',
+                error
+            );
+
+            showPaymentMessage(
+                'Unable to verify the payment. '
+                + 'Please try again.',
+                'danger'
+            );
+
+        });
+
+    }
+
+
+    // =================================================
+    // PAYMENT MESSAGE
+    // =================================================
+
+    function showPaymentMessage(
+        message,
+        type
+    ) {
+
+        const messageBox =
+            document.getElementById(
+                'payment-message'
+            );
+
+        if (!messageBox) {
+            return;
+        }
+
+        messageBox.className =
+            'alert alert-' + type;
+
+        messageBox.textContent =
+            message;
+
+        messageBox.style.display =
+            'block';
+    }
+
+</script>
+
+{% endblock %}

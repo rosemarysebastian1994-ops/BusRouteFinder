@@ -38,6 +38,66 @@ class Route(models.Model):
     def __str__(self):
         return f"{self.route_name} (ID: {self.id})"
 
+class Fare(models.Model):
+
+    route = models.ForeignKey(
+        Route,
+        on_delete=models.CASCADE,
+        related_name='fares',
+    )
+
+    min_distance_km = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+    )
+
+    max_distance_km = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+    )
+
+    amount = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+    )
+
+    is_active = models.BooleanField(
+        default=True
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+
+        ordering = [
+            'route',
+            'min_distance_km',
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    'route',
+                    'min_distance_km',
+                    'max_distance_km',
+                ],
+                name='unique_route_fare_slab',
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f'{self.route.route_name} - '
+            f'{self.min_distance_km} to '
+            f'{self.max_distance_km} km - '
+            f'₹{self.amount}'
+        )
 
 class Stop(models.Model):
     name = models.CharField(max_length=100)
@@ -79,6 +139,12 @@ class RouteStop(models.Model):
     travel_time_minutes = models.PositiveIntegerField(
         default=0,
         help_text="Travel time from the previous stop in minutes"
+    )
+
+    distance_from_start_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=0,
     )
 
     class Meta:

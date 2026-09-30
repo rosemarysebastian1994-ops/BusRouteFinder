@@ -2,6 +2,11 @@ from django.db import models
 from django.contrib.auth.models import User
 import uuid
 
+from decimal import Decimal
+
+from django.conf import settings
+from django.core.exceptions import ValidationError
+
 # Create your models here.
 
 
@@ -27,12 +32,6 @@ class Bus(models.Model):
         upload_to='buses/',
         blank=True,
         null=True
-    )
-
-    fare = models.DecimalField(
-        max_digits=8,
-        decimal_places=2,
-        default=0
     )
 
     driver = models.OneToOneField(
@@ -209,3 +208,204 @@ class BusStopVisit(models.Model):
             f"{self.bus.bus_number} - "
             f"{self.route_stop.stop.name}"
         )
+
+class Ticket(models.Model):
+
+    STATUS_CHOICES = [
+        ('PAYMENT_PENDING', 'Payment Pending'),
+        ('CONFIRMED', 'Confirmed'),
+        ('CANCELLED', 'Cancelled'),
+        ('COMPLETED', 'Completed'),
+    ]
+
+    ticket_number = models.CharField(
+        max_length=20,
+        unique=True,
+        editable=False
+    )
+
+    passenger = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='tickets'
+    )
+
+    schedule = models.ForeignKey(
+        'routes.BusSchedule',
+        on_delete=models.PROTECT,
+        related_name='tickets'
+    )
+
+    source_stop = models.ForeignKey(
+        'routes.RouteStop',
+        on_delete=models.PROTECT,
+        related_name='tickets_from'
+    )
+
+    destination_stop = models.ForeignKey(
+        'routes.RouteStop',
+        on_delete=models.PROTECT,
+        related_name='tickets_to'
+    )
+
+    journey_date = models.DateField()
+
+    passenger_count = models.PositiveSmallIntegerField(
+        default=1
+    )
+
+    fare_per_passenger = models.DecimalField(
+        max_digits=8,
+        decimal_places=2
+    )
+
+    total_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='PAYMENT_PENDING'
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def clean(self):
+
+        if (
+            self.source_stop.route_id
+            != self.destination_stop.route_id
+        ):
+            raise ValidationError(
+                'Source and destination must belong '
+                'to the same route.'
+            )
+
+        if (
+            self.source_stop.stop_order
+            >= self.destination_stop.stop_order
+        ):
+            raise ValidationError(
+                'Destination stop must come after '
+                'the source stop.'
+            )
+
+        if (
+            self.schedule.route_id
+            != self.source_stop.route_id
+        ):
+            raise ValidationError(
+                'Selected stops must belong to '
+                'the scheduled route.'
+            )
+
+        if self.passenger_count < 1:
+            raise ValidationError(
+                'Passenger count must be at least 1.'
+            )
+
+    def save(self, *args, **kwargs):
+
+        if not self.ticket_number:
+            self.ticket_number = (
+                f"BRF-{uuid.uuid4().hex[:10].upper()}"
+            )
+
+        self.total_amount = (
+            self.fare_per_passenger
+            * Decimal(self.passenger_count)
+        )
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.ticket_number
+
+class Payment(models.Model):
+
+    STATUS_CHOICES = [
+        ('CREATED', 'Created'),
+        ('PAID', 'Paid'),
+        ('FAILED', 'Failed'),
+        ('REFUNDED', 'Refunded'),
+    ]
+
+    ticket = models.OneToOneField(
+        Ticket,
+        on_delete=models.PROTECT,
+        related_name='payment',
+        null=True,
+        blank=True,
+    )
+
+    passenger = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='payments',
+    )
+
+    razorpay_order_id = models.CharField(
+        max_length=100,
+        unique=True,
+    )
+
+    razorpay_payment_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+    )
+
+    razorpay_refund_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+    )
+
+    razorpay_signature = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+    )
+
+    failure_reason = models.TextField(
+        blank=True,
+        null=True,
+    )
+
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
+
+    currency = models.CharField(
+        max_length=3,
+        default='INR',
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='CREATED',
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    def __str__(self):
+        return self.razorpay_order_id

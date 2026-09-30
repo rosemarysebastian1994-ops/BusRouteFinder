@@ -51,4 +51,70 @@ urlpatterns = [
         views.bus_timings,
         name='bus_timings'
     ),
+
+    path(
+        'ajax/schedule-stops/',
+        views.schedule_stops,
+        name='schedule_stops'
+    ),
+
+    path(
+        'book/',
+        views.book_ticket,
+        name='book_ticket'
+    ),
+
+    path(
+        'calculate-booking-fare/',
+        views.calculate_booking_fare,
+        name='calculate_booking_fare'
+    ),
+
+    path(
+        'book/schedule-stops/',
+        views.booking_schedule_stops,
+        name='booking_schedule_stops'
+    ),
+
+    path(
+        'payment/verify/',
+        views.verify_payment,
+        name='verify_payment'
+    ),
+
+    path(
+        'payment/failure/',
+        views.payment_failure,
+        name='payment_failure'
+    ),
+
+    path(
+        'tickets/',
+        views.my_tickets,
+        name='my_tickets'
+    ),
+
+    path(
+        'tickets/<int:ticket_id>/payment/',
+        views.ticket_payment,
+        name='ticket_payment'
+    ),
+
+    path(
+        'tickets/<int:ticket_id>/',
+        views.ticket_detail,
+        name='ticket_detail'
+    ),
+
+    path(
+        'tickets/<int:ticket_id>/cancel/',
+        views.cancel_ticket,
+        name='cancel_ticket'
+    ),
+
+    path(
+        'tickets/<int:ticket_id>/download/',
+        views.download_ticket,
+        name='download_ticket'
+    ),
 ]

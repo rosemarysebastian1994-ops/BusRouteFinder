@@ -146,6 +146,18 @@
                         <i class="bi bi-bus-front-fill me-1"></i>
                         Live Buses
                     </a>
+                    <a
+                        href="{% url 'buses:book_ticket' %}"
+                        class="nav-link"
+                    >
+                        Book Seats
+                    </a>
+                    <a
+                        href="{% url 'buses:my_tickets' %}"
+                        class="nav-link"
+                    >
+                        My Tickets
+                    </a>
                 {% endif %}
 
                     <a href="{% url 'accounts:profile' %}"

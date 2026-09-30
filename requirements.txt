@@ -6,3 +6,5 @@ psycopg[binary]
 dj-database-url
 cloudinary
 django-cloudinary-storage
+reportlab
+razorpay 
