@@ -351,7 +351,7 @@
                         </a>
 
 
-                        {% if ticket.status == 'CONFIRMED' %}
+                        {% if ticket.status == 'PAYMENT_PENDING' or ticket.status == 'CONFIRMED' %}
 
                             <form
                                 method="post"
@@ -373,7 +373,6 @@
                             </form>
 
                         {% endif %}
-
 
                     </div>
 

@@ -2935,15 +2935,61 @@ def cancel_ticket(request, ticket_id):
     # TICKET STATUS CHECK
     # ---------------------------------------------------------
 
+    if ticket.status == 'PAYMENT_PENDING':
+
+        payment = ticket.payment
+
+        # -----------------------------------------------------
+        # PAYMENT PENDING - CREATED OR FAILED
+        # -----------------------------------------------------
+
+        if payment.status in [
+            'CREATED',
+            'FAILED',
+        ]:
+
+            ticket.status = 'CANCELLED'
+
+            ticket.save(
+                update_fields=[
+                    'status',
+                    'updated_at',
+                ]
+            )
+
+            messages.success(
+                request,
+                f'Ticket {ticket.ticket_number} '
+                f'has been cancelled.'
+            )
+
+            return redirect(
+                'buses:ticket_detail',
+                ticket_id=ticket.id
+            )
+
+        messages.error(
+            request,
+            'This ticket cannot be cancelled because '
+            'its payment is currently being processed.'
+        )
+
+        return redirect(
+            'buses:ticket_detail',
+            ticket_id=ticket.id
+        )
+
+
     if ticket.status != 'CONFIRMED':
         messages.error(
             request,
-            'Only confirmed tickets can be cancelled.'
+            'This ticket cannot be cancelled.'
         )
         return redirect(
             'buses:ticket_detail',
             ticket_id=ticket.id
         )
+
 
     # ---------------------------------------------------------
     # DEPARTURE TIME CHECK
@@ -2966,6 +3012,7 @@ def cancel_ticket(request, ticket_id):
             'buses:ticket_detail',
             ticket_id=ticket.id
         )
+
 
     # ---------------------------------------------------------
     # PAYMENT CHECK
@@ -3014,6 +3061,7 @@ def cancel_ticket(request, ticket_id):
             ticket_id=ticket.id
         )
 
+
     # ---------------------------------------------------------
     # RAZORPAY REFUND
     # ---------------------------------------------------------
@@ -3049,6 +3097,7 @@ def cancel_ticket(request, ticket_id):
             ticket_id=ticket.id
         )
 
+
     # ---------------------------------------------------------
     # SAVE REFUND DETAILS
     # ---------------------------------------------------------
@@ -3063,6 +3112,7 @@ def cancel_ticket(request, ticket_id):
             'updated_at',
         ]
     )
+
 
     # ---------------------------------------------------------
     # CANCEL TICKET
