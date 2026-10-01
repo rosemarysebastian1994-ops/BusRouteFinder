@@ -18,39 +18,60 @@
                             Complete Payment
                         </h3>
 
+
                         <div class="mb-4">
 
                             <p>
-                                <strong>Ticket:</strong>
-                                {{ ticket.ticket_number }}
+                                <strong>Route:</strong>
+                                {{ payment.schedule.route.route_name }}
                             </p>
 
-                            <p>
-                                <strong>Route:</strong>
-                                {{ ticket.schedule.route.route_name }}
-                            </p>
 
                             <p>
                                 <strong>From:</strong>
-                                {{ ticket.source_stop.stop.name }}
+                                {{ payment.source_stop.stop.name }}
                             </p>
+
 
                             <p>
                                 <strong>To:</strong>
-                                {{ ticket.destination_stop.stop.name }}
+                                {{ payment.destination_stop.stop.name }}
+                            </p>
+
+
+                            <p>
+                                <strong>Journey Date:</strong>
+                                {{ payment.journey_date }}
+                            </p>
+
+                            <p>
+                                <strong>Journey Time:</strong>
+                                {{ payment.schedule.departure_time|time:"h:i A" }}
+
+                                {% if payment.schedule.arrival_time %}
+                                    – {{ payment.schedule.arrival_time|time:"h:i A" }}
+                                {% endif %}
                             </p>
 
                             <p>
                                 <strong>Passengers:</strong>
-                                {{ ticket.passenger_count }}
+                                {{ payment.passenger_count }}
                             </p>
+
+
+                            <p>
+                                <strong>Fare per passenger:</strong>
+                                ₹{{ payment.fare_per_passenger }}
+                            </p>
+
 
                             <h4 class="mt-4">
                                 Total:
-                                ₹{{ ticket.total_amount }}
+                                ₹{{ payment.total_amount }}
                             </h4>
 
                         </div>
+
 
                         <div
                             id="payment-message"
@@ -59,13 +80,17 @@
                         >
                         </div>
 
+
                         <button
                             type="button"
                             id="pay-button"
                             class="btn btn-primary btn-block"
                         >
+
                             <i class="bi bi-credit-card"></i>
-                            Pay ₹{{ ticket.total_amount }}
+
+                            Pay ₹{{ payment.total_amount }}
+
                         </button>
 
                     </div>
@@ -80,7 +105,9 @@
 
 </section>
 
+
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
 
 <script>
 
@@ -101,11 +128,13 @@
 
         order_id: "{{ payment.razorpay_order_id }}",
 
+
         handler: function (response) {
 
             verifyPayment(response);
 
         },
+
 
         modal: {
 
@@ -113,13 +142,14 @@
 
                 showPaymentMessage(
                     'Payment window closed. '
-                    + 'Your ticket is still pending payment.',
+                    + 'Your payment is still pending.',
                     'warning'
                 );
 
             }
 
         },
+
 
         theme: {
             color: "#007bff"
@@ -145,29 +175,35 @@
                 response
             );
 
+
             const errorDescription =
                 response.error &&
                 response.error.description
                     ? response.error.description
                     : 'Payment could not be completed.';
 
+
             const formData =
                 new FormData();
+
 
             formData.append(
                 'razorpay_order_id',
                 "{{ payment.razorpay_order_id }}"
             );
 
+
             formData.append(
                 'error_description',
                 errorDescription
             );
 
+
             formData.append(
                 'csrfmiddlewaretoken',
                 '{{ csrf_token }}'
             );
+
 
             fetch(
                 "{% url 'buses:payment_failure' %}",
@@ -188,6 +224,7 @@
                 );
 
             });
+
 
             showPaymentMessage(
                 errorDescription,
@@ -225,30 +262,36 @@
         const formData =
             new FormData();
 
+
         formData.append(
             'razorpay_payment_id',
             response.razorpay_payment_id
         );
+
 
         formData.append(
             'razorpay_order_id',
             response.razorpay_order_id
         );
 
+
         formData.append(
             'razorpay_signature',
             response.razorpay_signature
         );
+
 
         formData.append(
             'csrfmiddlewaretoken',
             '{{ csrf_token }}'
         );
 
+
         showPaymentMessage(
             'Verifying payment...',
             'info'
         );
+
 
         fetch(
             "{% url 'buses:verify_payment' %}",
@@ -278,7 +321,9 @@
                     );
 
                 return;
+
             }
+
 
             showPaymentMessage(
                 data.message ||
@@ -293,6 +338,7 @@
                 'Payment verification error:',
                 error
             );
+
 
             showPaymentMessage(
                 'Unable to verify the payment. '
@@ -319,18 +365,23 @@
                 'payment-message'
             );
 
+
         if (!messageBox) {
             return;
         }
 
+
         messageBox.className =
             'alert alert-' + type;
+
 
         messageBox.textContent =
             message;
 
+
         messageBox.style.display =
             'block';
+
     }
 
 </script>

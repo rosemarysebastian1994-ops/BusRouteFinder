@@ -71,9 +71,21 @@ urlpatterns = [
     ),
 
     path(
+        'check-seat-availability/',
+        views.check_seat_availability,
+        name='check_seat_availability'
+    ),
+
+    path(
         'book/schedule-stops/',
         views.booking_schedule_stops,
         name='booking_schedule_stops'
+    ),
+
+    path(
+        'payment/<int:payment_id>/',
+        views.payment_page,
+        name='payment_page'
     ),
 
     path(

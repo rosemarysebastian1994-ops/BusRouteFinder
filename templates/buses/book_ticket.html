@@ -9,6 +9,9 @@
 
     const bookingFareUrl =
         "{% url 'buses:calculate_booking_fare' %}";
+
+    const bookingAvailabilityUrl =
+        "{% url 'buses:check_seat_availability' %}";
 </script>
 
 <script src="{% static 'buses/js/book_ticket.js' %}"></script>
@@ -147,6 +150,21 @@
 
                             </div>
 
+                            <div
+                                id="availability-section"
+                                class="alert alert-info"
+                                style="display: none;"
+                            >
+
+                                <strong>
+                                    Available Seats:
+                                </strong>
+
+                                <span id="available-seats">
+                                    0
+                                </span>
+
+                            </div>
 
                             <div
                                 id="fare-section"

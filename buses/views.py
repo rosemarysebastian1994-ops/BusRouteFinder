@@ -10,6 +10,7 @@ from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from routes.models import Route, RouteStop, BusSchedule
 from math import radians, sin, cos, sqrt, atan2
+from decimal import Decimal
 import uuid
 from datetime import datetime
 from django.utils import timezone
@@ -21,10 +22,11 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import Group
 from django.contrib import messages
 from django.conf import settings
+from django.db import transaction
 
 from .forms import TicketBookingForm
 
-from .services import complete_past_tickets
+from .services import complete_past_tickets, get_available_seats
 
 STOP_ARRIVAL_DISTANCE_KM = 0.08
 STOP_DEPARTURE_DISTANCE_KM = 0.15
@@ -2486,27 +2488,55 @@ def book_ticket(request):
     if not request.user.groups.filter(
         name='Passengers'
     ).exists():
+
         messages.error(
             request,
             'Only passengers can book tickets.'
         )
-        return redirect('core:home')
+
+        return redirect(
+            'core:home'
+        )
 
     if request.method == 'POST':
 
-        form = TicketBookingForm(request.POST)
+        form = TicketBookingForm(
+            request.POST
+        )
 
         if form.is_valid():
 
-            ticket = form.save(commit=False)
+            schedule = (
+                form.cleaned_data['schedule']
+            )
 
-            ticket.passenger = request.user
+            source_stop = (
+                form.cleaned_data['source_stop']
+            )
+
+            destination_stop = (
+                form.cleaned_data['destination_stop']
+            )
+
+            journey_date = (
+                form.cleaned_data['journey_date']
+            )
+
+            passenger_count = (
+                form.cleaned_data['passenger_count']
+            )
+
+            # -----------------------------------------
+            # CALCULATE FARE
+            # -----------------------------------------
 
             try:
 
-                ticket.fare_per_passenger = calculate_route_fare(
-                    ticket.source_stop,
-                    ticket.destination_stop,
+                fare_per_passenger = (
+                    calculate_route_fare(
+                        source_stop,
+                        destination_stop,
+                    )
                 )
 
             except ValidationError as error:
@@ -2524,13 +2554,18 @@ def book_ticket(request):
                     }
                 )
 
-            ticket.status = 'PAYMENT_PENDING'
-
-            ticket.save()
+            total_amount = (
+                fare_per_passenger
+                * Decimal(passenger_count)
+            )
 
             amount_paise = int(
-                ticket.total_amount * 100
+                total_amount * 100
             )
+
+            # -----------------------------------------
+            # CREATE RAZORPAY ORDER
+            # -----------------------------------------
 
             client = razorpay.Client(
                 auth=(
@@ -2545,21 +2580,33 @@ def book_ticket(request):
                     {
                         'amount': amount_paise,
                         'currency': 'INR',
-                        'receipt': ticket.ticket_number,
+                        'receipt': (
+                            f'BRF-{uuid.uuid4().hex[:10].upper()}'
+                        ),
                         'notes': {
-                            'ticket_number': (
-                                ticket.ticket_number
-                            ),
                             'passenger_id': str(
                                 request.user.id
+                            ),
+                            'schedule_id': str(
+                                schedule.id
+                            ),
+                            'source_stop_id': str(
+                                source_stop.id
+                            ),
+                            'destination_stop_id': str(
+                                destination_stop.id
+                            ),
+                            'journey_date': str(
+                                journey_date
+                            ),
+                            'passenger_count': str(
+                                passenger_count
                             ),
                         },
                     }
                 )
 
-            except Exception as e:
-
-                ticket.delete()
+            except Exception:
 
                 messages.error(
                     request,
@@ -2571,14 +2618,38 @@ def book_ticket(request):
                     'buses:book_ticket'
                 )
 
-            Payment.objects.create(
-                ticket=ticket,
+            # -----------------------------------------
+            # CREATE PAYMENT RESERVATION
+            # -----------------------------------------
+
+            payment = Payment.objects.create(
+
                 passenger=request.user,
+
+                schedule=schedule,
+
+                source_stop=source_stop,
+
+                destination_stop=destination_stop,
+
+                journey_date=journey_date,
+
+                passenger_count=passenger_count,
+
+                fare_per_passenger=(
+                    fare_per_passenger
+                ),
+
+                total_amount=total_amount,
+
                 razorpay_order_id=(
                     razorpay_order['id']
                 ),
-                amount=ticket.total_amount,
+
+                amount=total_amount,
+
                 currency='INR',
+
                 status='CREATED',
             )
 
@@ -2586,8 +2657,7 @@ def book_ticket(request):
                 request,
                 'buses/payment.html',
                 {
-                    'ticket': ticket,
-                    'payment': ticket.payment,
+                    'payment': payment,
                     'razorpay_key_id': (
                         settings.RAZORPAY_KEY_ID
                     ),
@@ -2878,17 +2948,43 @@ def my_tickets(request):
     if not request.user.groups.filter(
         name='Passengers'
     ).exists():
+
         messages.error(
             request,
             'Only passengers can view tickets.'
         )
-        return redirect('core:home')
+
+        return redirect(
+            'core:home'
+        )
 
     complete_past_tickets()
 
     tickets = (
         Ticket.objects
-        .filter(passenger=request.user)
+        .filter(
+            passenger=request.user
+        )
+        .select_related(
+            'schedule',
+            'schedule__route',
+            'schedule__route__bus',
+            'source_stop__stop',
+            'destination_stop__stop',
+        )
+        .order_by('-created_at')
+    )
+
+    pending_payments = (
+        Payment.objects
+        .filter(
+            passenger=request.user,
+            status__in=[
+                'CREATED',
+                'FAILED',
+            ],
+            ticket__isnull=True,
+        )
         .select_related(
             'schedule',
             'schedule__route',
@@ -2904,6 +3000,7 @@ def my_tickets(request):
         'buses/my_tickets.html',
         {
             'tickets': tickets,
+            'pending_payments': pending_payments,
         }
     )
 
@@ -3366,6 +3463,7 @@ def verify_payment(request):
     if not request.user.groups.filter(
         name='Passengers'
     ).exists():
+
         return JsonResponse(
             {
                 'success': False,
@@ -3391,6 +3489,7 @@ def verify_payment(request):
         order_id,
         signature,
     ]):
+
         return JsonResponse(
             {
                 'success': False,
@@ -3400,52 +3499,74 @@ def verify_payment(request):
         )
 
     payment = get_object_or_404(
-        Payment.objects.select_related('ticket'),
+        Payment.objects.select_related(
+            'ticket',
+            'schedule',
+            'source_stop',
+            'destination_stop',
+        ),
         razorpay_order_id=order_id,
         passenger=request.user
     )
 
-    ticket = payment.ticket
-
-    if ticket is None:
-        return JsonResponse(
-            {
-                'success': False,
-                'message': 'Ticket could not be found.'
-            },
-            status=400
-        )
-
-    # ---------------------------------------------
     # ALREADY PAID
-    # ---------------------------------------------
-
     if payment.status == 'PAID':
 
-        return JsonResponse(
-            {
-                'success': True,
-                'ticket_id': ticket.id
-            }
-        )
+        if payment.ticket:
 
-    # ---------------------------------------------
-    # TICKET MUST STILL BE PAYMENT PENDING
-    # ---------------------------------------------
-
-    if ticket.status != 'PAYMENT_PENDING':
+            return JsonResponse(
+                {
+                    'success': True,
+                    'ticket_id': payment.ticket.id
+                }
+            )
 
         return JsonResponse(
             {
                 'success': False,
                 'message': (
-                    'This ticket is no longer available '
-                    'for payment.'
+                    'Payment is already marked as paid, '
+                    'but the ticket could not be found.'
                 )
             },
             status=400
         )
 
+    # PAYMENT MUST BE CREATED
+    if payment.status != 'CREATED':
+
+        return JsonResponse(
+            {
+                'success': False,
+                'message': (
+                    'This payment is no longer available '
+                    'for verification.'
+                )
+            },
+            status=400
+        )
+
+    # CHECK RESERVATION DATA
+    if not all([
+        payment.schedule,
+        payment.source_stop,
+        payment.destination_stop,
+        payment.journey_date,
+        payment.fare_per_passenger,
+        payment.total_amount,
+    ]):
+
+        return JsonResponse(
+            {
+                'success': False,
+                'message': (
+                    'Payment reservation data is incomplete.'
+                )
+            },
+            status=400
+        )
+
+    # VERIFY RAZORPAY SIGNATURE
     client = razorpay.Client(
         auth=(
             settings.RAZORPAY_KEY_ID,
@@ -3475,29 +3596,48 @@ def verify_payment(request):
             status=400
         )
 
-    payment.razorpay_payment_id = payment_id
-    payment.razorpay_signature = signature
-    payment.status = 'PAID'
-    payment.failure_reason = None
+    # CREATE TICKET + UPDATE PAYMENT
+    # AS ONE ATOMIC OPERATION
 
-    payment.save(
-        update_fields=[
-            'razorpay_payment_id',
-            'razorpay_signature',
-            'status',
-            'failure_reason',
-            'updated_at',
-        ]
-    )
+    with transaction.atomic():
 
-    ticket.status = 'CONFIRMED'
+        ticket = Ticket.objects.create(
+            passenger=payment.passenger,
+            schedule=payment.schedule,
+            source_stop=payment.source_stop,
+            destination_stop=payment.destination_stop,
+            journey_date=payment.journey_date,
+            passenger_count=payment.passenger_count,
+            fare_per_passenger=(
+                payment.fare_per_passenger
+            ),
+            status='CONFIRMED',
+        )
 
-    ticket.save(
-        update_fields=[
-            'status',
-            'updated_at',
-        ]
-    )
+        payment.ticket = ticket
+
+        payment.razorpay_payment_id = (
+            payment_id
+        )
+
+        payment.razorpay_signature = (
+            signature
+        )
+
+        payment.status = 'PAID'
+
+        payment.failure_reason = None
+
+        payment.save(
+            update_fields=[
+                'ticket',
+                'razorpay_payment_id',
+                'razorpay_signature',
+                'status',
+                'failure_reason',
+                'updated_at',
+            ]
+        )
 
     return JsonResponse(
         {
@@ -3568,5 +3708,213 @@ def payment_failure(request):
     return JsonResponse(
         {
             'success': True
+        }
+    )
+
+@login_required
+def payment_page(request, payment_id):
+
+    if not request.user.groups.filter(
+        name='Passengers'
+    ).exists():
+
+        messages.error(
+            request,
+            'Only passengers can make payments.'
+        )
+
+        return redirect(
+            'core:home'
+        )
+
+    payment = get_object_or_404(
+        Payment.objects.select_related(
+            'schedule',
+            'schedule__route',
+            'schedule__route__bus',
+            'source_stop__stop',
+            'destination_stop__stop',
+        ),
+        id=payment_id,
+        passenger=request.user,
+    )
+
+    # ---------------------------------------------------------
+    # ALREADY PAID
+    # ---------------------------------------------------------
+
+    if payment.status == 'PAID':
+
+        if payment.ticket:
+
+            return redirect(
+                'buses:ticket_detail',
+                ticket_id=payment.ticket.id
+            )
+
+        messages.error(
+            request,
+            'This payment has already been completed.'
+        )
+
+        return redirect(
+            'buses:my_tickets'
+        )
+
+    # ---------------------------------------------------------
+    # PAYMENT MUST STILL BE AVAILABLE
+    # ---------------------------------------------------------
+
+    if payment.status not in [
+        'CREATED',
+        'FAILED',
+    ]:
+
+        messages.error(
+            request,
+            'This payment is no longer available.'
+        )
+
+        return redirect(
+            'buses:my_tickets'
+        )
+
+    return render(
+        request,
+        'buses/payment.html',
+        {
+            'payment': payment,
+            'razorpay_key_id': (
+                settings.RAZORPAY_KEY_ID
+            ),
+        }
+    )
+
+@login_required
+def check_seat_availability(request):
+
+    if not request.user.groups.filter(
+        name='Passengers'
+    ).exists():
+
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'Passenger access required.'
+            },
+            status=403
+        )
+
+    schedule_id = request.GET.get(
+        'schedule_id'
+    )
+
+    source_stop_id = request.GET.get(
+        'source_stop_id'
+    )
+
+    destination_stop_id = request.GET.get(
+        'destination_stop_id'
+    )
+
+    journey_date = request.GET.get(
+        'journey_date'
+    )
+
+    if not all([
+        schedule_id,
+        source_stop_id,
+        destination_stop_id,
+        journey_date,
+    ]):
+
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'Incomplete booking information.'
+            },
+            status=400
+        )
+
+    schedule = get_object_or_404(
+        BusSchedule,
+        id=schedule_id
+    )
+
+    source_stop = get_object_or_404(
+        RouteStop,
+        id=source_stop_id
+    )
+
+    destination_stop = get_object_or_404(
+        RouteStop,
+        id=destination_stop_id
+    )
+
+    try:
+
+        journey_date = datetime.strptime(
+            journey_date,
+            '%Y-%m-%d'
+        ).date()
+
+    except ValueError:
+
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'Invalid journey date.'
+            },
+            status=400
+        )
+
+    if source_stop.route_id != schedule.route_id:
+
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'Invalid source stop.'
+            },
+            status=400
+        )
+
+    if destination_stop.route_id != schedule.route_id:
+
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'Invalid destination stop.'
+            },
+            status=400
+        )
+
+    if (
+        source_stop.stop_order
+        >=
+        destination_stop.stop_order
+    ):
+
+        return JsonResponse(
+            {
+                'success': False,
+                'message': (
+                    'Destination must come after '
+                    'the source.'
+                )
+            },
+            status=400
+        )
+
+    available_seats = get_available_seats(
+        schedule=schedule,
+        journey_date=journey_date,
+        source_stop=source_stop,
+        destination_stop=destination_stop,
+    )
+
+    return JsonResponse(
+        {
+            'success': True,
+            'available_seats': available_seats,
         }
     )

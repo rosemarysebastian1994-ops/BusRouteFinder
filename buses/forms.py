@@ -15,6 +15,8 @@ from routes.utils import (
     calculate_stop_arrival_datetime,
 )
 
+from buses.services import get_available_seats
+
 class TicketBookingForm(forms.ModelForm):
 
     class Meta:
@@ -164,6 +166,27 @@ class TicketBookingForm(forms.ModelForm):
 
                 raise ValidationError(
                     'Destination stop must come after the source stop.'
+                )
+
+        if (
+                schedule
+                and source_stop
+                and destination_stop
+                and journey_date
+                and passenger_count
+        ):
+            available_seats = get_available_seats(
+                schedule,
+                journey_date,
+                source_stop,
+                destination_stop,
+            )
+
+            if passenger_count > available_seats:
+                raise ValidationError(
+                    f'Only {available_seats} seat'
+                    f'{"s" if available_seats != 1 else ""} '
+                    f'available for this journey.'
                 )
 
         if journey_date:

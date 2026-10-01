@@ -26,6 +26,21 @@ document.addEventListener(
                 'id_passenger_count'
             );
 
+        const journeyDateField =
+            document.getElementById(
+                'id_journey_date'
+            );
+
+        const availabilitySection =
+            document.getElementById(
+                'availability-section'
+            );
+
+        const availableSeats =
+            document.getElementById(
+                'available-seats'
+            );
+
         const fareSection =
             document.getElementById(
                 'fare-section'
@@ -44,9 +59,12 @@ document.addEventListener(
 
         if (
             !scheduleField ||
+            !journeyDateField ||
             !sourceField ||
             !destinationField ||
             !passengerCountField ||
+            !availabilitySection ||
+            !availableSeats ||
             !fareSection ||
             !farePerPassenger ||
             !totalFare
@@ -169,6 +187,163 @@ document.addEventListener(
 
         }
 
+        // =====================================================
+        // CHECK SEAT AVAILABILITY
+        // =====================================================
+
+        function checkSeatAvailability() {
+
+            console.log(
+                'CHECKING SEAT AVAILABILITY'
+            );
+
+            const scheduleId =
+                scheduleField.value;
+
+            const journeyDate =
+                journeyDateField.value;
+
+            const sourceId =
+                sourceField.value;
+
+            const destinationId =
+                destinationField.value;
+
+            console.log(
+                'Availability data:',
+                {
+                    scheduleId: scheduleId,
+                    journeyDate: journeyDate,
+                    sourceId: sourceId,
+                    destinationId: destinationId
+                }
+            );
+
+
+            // -------------------------------------------------
+            // Required values not selected
+            // -------------------------------------------------
+
+            if (
+                !scheduleId ||
+                !journeyDate ||
+                !sourceId ||
+                !destinationId
+            ) {
+
+                availabilitySection.style.display =
+                    'none';
+
+                availableSeats.textContent =
+                    '0';
+
+                return;
+            }
+
+
+            // -------------------------------------------------
+            // Show loading state
+            // -------------------------------------------------
+
+            availabilitySection.style.display =
+                'block';
+
+            availableSeats.textContent =
+                'Checking...';
+
+
+            // -------------------------------------------------
+            // Ask server for availability
+            // -------------------------------------------------
+
+            fetch(
+                `${bookingAvailabilityUrl}?schedule_id=${scheduleId}&journey_date=${journeyDate}&source_stop_id=${sourceId}&destination_stop_id=${destinationId}`,
+                {
+                    headers: {
+                        'X-Requested-With':
+                            'XMLHttpRequest'
+                    }
+                }
+            )
+            .then(function (response) {
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        'Failed to check seat availability.'
+                    );
+
+                }
+
+                return response.json();
+
+            })
+            .then(function (data) {
+
+                if (!data.success) {
+
+                    availabilitySection.style.display =
+                        'none';
+
+                    console.error(
+                        'Seat availability check failed:',
+                        data.message
+                    );
+
+                    return;
+                }
+
+
+                availableSeats.textContent =
+                    data.available_seats;
+
+
+                availabilitySection.style.display =
+                    'block';
+
+
+                // -------------------------------------------------
+                // Change appearance when seats are low
+                // -------------------------------------------------
+
+                if (
+                    data.available_seats <= 5 &&
+                    data.available_seats > 0
+                ) {
+
+                    availabilitySection.className =
+                        'alert alert-warning';
+
+                }
+                else if (
+                    data.available_seats === 0
+                ) {
+
+                    availabilitySection.className =
+                        'alert alert-danger';
+
+                }
+                else {
+
+                    availabilitySection.className =
+                        'alert alert-info';
+
+                }
+
+            })
+            .catch(function (error) {
+
+                console.error(
+                    'Error checking seat availability:',
+                    error
+                );
+
+                availabilitySection.style.display =
+                    'none';
+
+            });
+
+        }
 
         // =====================================================
         // CALCULATE FARE
@@ -447,6 +622,11 @@ document.addEventListener(
             fareSection.style.display =
                 'none';
 
+            availabilitySection.style.display =
+                'none';
+
+            availableSeats.textContent =
+                '0';
 
             currentFare = 0;
 
@@ -560,6 +740,9 @@ document.addEventListener(
 
                 calculateFare();
 
+                availabilitySection.style.display =
+                    'none';
+
             }
         );
 
@@ -573,6 +756,21 @@ document.addEventListener(
             function () {
 
                 calculateFare();
+
+                checkSeatAvailability();
+
+            }
+        );
+
+        // =====================================================
+        // JOURNEY DATE CHANGE
+        // =====================================================
+
+        journeyDateField.addEventListener(
+            'change',
+            function () {
+
+                checkSeatAvailability();
 
             }
         );

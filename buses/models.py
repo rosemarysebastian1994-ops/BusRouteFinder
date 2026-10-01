@@ -28,6 +28,11 @@ class Bus(models.Model):
     )
     operator = models.CharField(max_length=100, blank=True)
 
+    capacity = models.PositiveIntegerField(
+        default=40,
+        help_text='Maximum number of passengers the bus can carry.'
+    )
+
     photo = models.ImageField(
         upload_to='buses/',
         blank=True,
@@ -355,6 +360,53 @@ class Payment(models.Model):
         related_name='payments',
     )
 
+    schedule = models.ForeignKey(
+        'routes.BusSchedule',
+        on_delete=models.PROTECT,
+        related_name='payments',
+        null=True,
+        blank=True,
+    )
+
+    source_stop = models.ForeignKey(
+        'routes.RouteStop',
+        on_delete=models.PROTECT,
+        related_name='payment_sources',
+        null=True,
+        blank=True,
+    )
+
+    destination_stop = models.ForeignKey(
+        'routes.RouteStop',
+        on_delete=models.PROTECT,
+        related_name='payment_destinations',
+        null=True,
+        blank=True,
+    )
+
+    journey_date = models.DateField(
+        null=True,
+        blank=True,
+    )
+
+    passenger_count = models.PositiveSmallIntegerField(
+        default=1,
+    )
+
+    fare_per_passenger = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
+    total_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    
     razorpay_order_id = models.CharField(
         max_length=100,
         unique=True,

@@ -23,7 +23,170 @@
                 </div>
 
 
+                {# ================================================== #}
+                {# PENDING PAYMENTS                                  #}
+                {# ================================================== #}
+
+                {% if pending_payments %}
+
+                    <div class="mb-5">
+
+                        <h4 class="mb-4">
+                            Pending Payments
+                        </h4>
+
+
+                        {% for payment in pending_payments %}
+
+                            <div class="card mb-4 border-warning">
+
+                                <div class="card-body p-4">
+
+                                    <div class="row">
+
+                                        <div class="col-md-8">
+
+                                            <h4>
+                                                Payment Pending
+                                            </h4>
+
+
+                                            <p class="mb-2">
+
+                                                <strong>
+                                                    Bus:
+                                                </strong>
+
+                                                {{ payment.schedule.route.bus.bus_name }}
+
+                                                ({{ payment.schedule.route.bus.bus_number }})
+
+                                            </p>
+
+
+                                            <p class="mb-2">
+
+                                                <strong>
+                                                    Route:
+                                                </strong>
+
+                                                {{ payment.schedule.route.route_name }}
+
+                                            </p>
+
+
+                                            <p class="mb-2">
+
+                                                <strong>
+                                                    Journey:
+                                                </strong>
+
+                                                {{ payment.source_stop.stop.name }}
+
+                                                →
+
+                                                {{ payment.destination_stop.stop.name }}
+
+                                            </p>
+
+
+                                            <p class="mb-2">
+
+                                                <strong>
+                                                    Journey Date:
+                                                </strong>
+
+                                                {{ payment.journey_date }}
+
+                                            </p>
+
+
+                                            <p class="mb-2">
+
+                                                <strong>
+                                                    Passengers:
+                                                </strong>
+
+                                                {{ payment.passenger_count }}
+
+                                            </p>
+
+
+                                            <p class="mb-0">
+
+                                                <strong>
+                                                    Total:
+                                                </strong>
+
+                                                ₹{{ payment.total_amount }}
+
+                                            </p>
+
+                                        </div>
+
+
+                                        <div
+                                            class="col-md-4 text-md-right mt-3 mt-md-0"
+                                        >
+
+                                            {% if payment.status == 'CREATED' %}
+
+                                                <span
+                                                    class="badge badge-warning p-2 mb-3"
+                                                >
+                                                    Payment Pending
+                                                </span>
+
+                                            {% elif payment.status == 'FAILED' %}
+
+                                                <span
+                                                    class="badge badge-danger p-2 mb-3"
+                                                >
+                                                    Payment Failed
+                                                </span>
+
+                                            {% endif %}
+
+
+                                            <br>
+
+
+                                            <a
+                                                href="{% url 'buses:payment_page' payment.id %}"
+                                                class="btn btn-primary"
+                                            >
+
+                                                <i class="bi bi-credit-card"></i>
+
+                                                Complete Payment
+
+                                            </a>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        {% endfor %}
+
+                    </div>
+
+                {% endif %}
+
+
+                {# ================================================== #}
+                {# CONFIRMED / CANCELLED / COMPLETED TICKETS         #}
+                {# ================================================== #}
+
                 {% if tickets %}
+
+                    <h4 class="mb-4">
+                        Tickets
+                    </h4>
+
 
                     {% for ticket in tickets %}
 
@@ -38,6 +201,7 @@
                                         <h4>
                                             {{ ticket.ticket_number }}
                                         </h4>
+
 
                                         <p class="mb-2">
 
@@ -168,7 +332,14 @@
 
                     {% endfor %}
 
-                {% else %}
+                {% endif %}
+
+
+                {# ================================================== #}
+                {# NOTHING FOUND                                     #}
+                {# ================================================== #}
+
+                {% if not tickets and not pending_payments %}
 
                     <div class="text-center">
 
@@ -181,13 +352,16 @@
                                     style="font-size: 50px;"
                                 ></i>
 
+
                                 <h4 class="mt-3">
                                     No Tickets Found
                                 </h4>
 
+
                                 <p>
                                     You have not booked any bus tickets yet.
                                 </p>
+
 
                                 <a
                                     href="{% url 'buses:book_ticket' %}"
