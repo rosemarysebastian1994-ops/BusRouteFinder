@@ -111,19 +111,19 @@
 
                 </li>
                 {% endif %}
-                <li class="nav-item">
-                    <a href="{% url 'core:about' %}"
-                       class="nav-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
-                        About
-                    </a>
-                </li>
+<!--                <li class="nav-item">-->
+<!--                    <a href="{% url 'core:about' %}"-->
+<!--                       class="nav-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">-->
+<!--                        About-->
+<!--                    </a>-->
+<!--                </li>-->
 
-                <li class="nav-item">
-                    <a href="{% url 'core:contact' %}"
-                       class="nav-link {% if request.resolver_match.url_name == 'contact' %}active{% endif %}">
-                        Contact
-                    </a>
-                </li>
+<!--                <li class="nav-item">-->
+<!--                    <a href="{% url 'core:contact' %}"-->
+<!--                       class="nav-link {% if request.resolver_match.url_name == 'contact' %}active{% endif %}">-->
+<!--                        Contact-->
+<!--                    </a>-->
+<!--                </li>-->
 
             </ul>
 
@@ -158,6 +158,25 @@
                     >
                         My Tickets
                     </a>
+
+                    <a
+                        href="{% url 'buses:notifications' %}"
+                        class="nav-link"
+                    >
+                        <i class="bi bi-bell me-1"></i>
+                        Notifications
+
+                        <span
+                            id="notification-count"
+                            class="badge badge-danger"
+                            {% if unread_notification_count == 0 %}
+                                style="display: none;"
+                            {% endif %}
+                        >
+                            {{ unread_notification_count }}
+                        </span>
+                    </a>
+
                 {% endif %}
 
                     <a href="{% url 'accounts:profile' %}"

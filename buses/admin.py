@@ -2,7 +2,7 @@ from django.contrib import admin
 
 # Register your models here.
 
-from .models import Bus, BusLocation, Ticket, Payment
+from .models import Bus, BusLocation, Notification, Ticket, Payment
 from django.contrib.auth.models import User
 
 @admin.register(Bus)
@@ -163,6 +163,37 @@ class PaymentAdmin(admin.ModelAdmin):
         'razorpay_signature',
         'created_at',
         'updated_at',
+    )
+
+    ordering = (
+        '-created_at',
+    )
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+
+    list_display = (
+        'passenger',
+        'notification_type',
+        'title',
+        'is_read',
+        'created_at',
+    )
+
+    list_filter = (
+        'notification_type',
+        'is_read',
+        'created_at',
+    )
+
+    search_fields = (
+        'passenger__username',
+        'title',
+        'message',
+    )
+
+    readonly_fields = (
+        'created_at',
     )
 
     ordering = (

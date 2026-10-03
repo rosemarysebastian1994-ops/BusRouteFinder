@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from .models import Bus, BusLocation, BusStopVisit, Ticket, Payment
+from .models import Bus, BusLocation, BusStopVisit, Notification, Ticket, Payment
 
 from django.contrib.admin.views.decorators import staff_member_required
 
@@ -26,8 +26,10 @@ from django.db import transaction
 
 from .forms import TicketBookingForm
 
-from .services import complete_past_tickets, get_available_seats
+from .services import (complete_past_tickets, get_available_seats, create_notification, notify_passengers_of_departure,
+                       notify_passengers_of_approaching, notify_passengers_of_arrival, notify_passengers_of_journey_completion,)
 
+STOP_APPROACHING_DISTANCE_KM = 1.0
 STOP_ARRIVAL_DISTANCE_KM = 0.08
 STOP_DEPARTURE_DISTANCE_KM = 0.15
 
@@ -251,6 +253,47 @@ def update_bus_location(request):
             float(latitude),
             float(longitude)
         )
+
+
+        if (
+                stop_event
+                and stop_event['event'] == 'APPROACHING'
+        ):
+            notify_passengers_of_approaching(
+                bus=bus,
+                route=route,
+                route_stop=stop_event['stop'],
+                current_time=timezone.now(),
+            )
+
+        if (
+                stop_event
+                and stop_event['event'] == 'ARRIVAL'
+        ):
+            notify_passengers_of_arrival(
+                bus=bus,
+                route=route,
+                route_stop=stop_event['stop'],
+                arrival_time=stop_event['arrival_time'],
+            )
+
+            notify_passengers_of_journey_completion(
+                bus=bus,
+                route=route,
+                route_stop=stop_event['stop'],
+                arrival_time=stop_event['arrival_time'],
+            )
+
+        if (
+                stop_event
+                and stop_event['event'] == 'DEPARTURE'
+        ):
+            notify_passengers_of_departure(
+                bus=bus,
+                route=route,
+                route_stop=stop_event['stop'],
+                departure_time=stop_event['departure_time'],
+            )
 
     return JsonResponse({
         'success': True,
@@ -529,8 +572,30 @@ def detect_stop_arrival_departure(
 
     if location.stop_status == 'TRAVELLING':
 
-        if current_distance <= STOP_ARRIVAL_DISTANCE_KM:
+        # ------------------------------------------
+        # BUS APPROACHING CURRENT EXPECTED STOP
+        # ------------------------------------------
 
+        if (
+                current_distance
+                <= STOP_APPROACHING_DISTANCE_KM
+                and
+                current_distance
+                > STOP_ARRIVAL_DISTANCE_KM
+        ):
+            return {
+                'event': 'APPROACHING',
+                'stop': current_route_stop,
+                'next_stop': None,
+                'arrival_time': None,
+                'departure_time': None,
+            }
+
+        # ------------------------------------------
+        # BUS HAS ARRIVED
+        # ------------------------------------------
+
+        if current_distance <= STOP_ARRIVAL_DISTANCE_KM:
             visit = BusStopVisit.objects.create(
                 bus=location.bus,
                 route=route,
@@ -560,7 +625,6 @@ def detect_stop_arrival_departure(
                 'departure_time': None,
             }
 
-        # Still travelling toward the expected stop.
         return None
 
     # ==================================================
@@ -3532,8 +3596,8 @@ def verify_payment(request):
             status=400
         )
 
-    # PAYMENT MUST BE CREATED
-    if payment.status != 'CREATED':
+    # PAYMENT MUST BE CREATED OR FAILED
+    if payment.status not in ['CREATED', 'FAILED']:
 
         return JsonResponse(
             {
@@ -3624,7 +3688,20 @@ def verify_payment(request):
             signature
         )
 
+
         payment.status = 'PAID'
+
+        create_notification(
+            passenger=payment.passenger,
+            title='Ticket Confirmed',
+            message=(
+                f'Your ticket {ticket.ticket_number} has been confirmed '
+                f'for {ticket.source_stop.stop.name} to '
+                f'{ticket.destination_stop.stop.name}.'
+            ),
+            notification_type='BOOKING',
+            ticket=ticket,
+        )
 
         payment.failure_reason = None
 
@@ -3685,6 +3762,10 @@ def payment_failure(request):
         passenger=request.user
     )
 
+    razorpay_payment_id = request.POST.get(
+        'razorpay_payment_id'
+    )
+
     if payment.status == 'PAID':
         return JsonResponse(
             {
@@ -3693,21 +3774,58 @@ def payment_failure(request):
             }
         )
 
+    if (
+            payment.status == 'FAILED'
+            and payment.razorpay_payment_id
+            == razorpay_payment_id
+    ):
+        return JsonResponse(
+            {
+                'success': True,
+                'message': 'Payment failure already recorded.',
+            }
+        )
+
     payment.status = 'FAILED'
 
     payment.failure_reason = error_description
+
+    payment.razorpay_payment_id = (
+        razorpay_payment_id
+    )
 
     payment.save(
         update_fields=[
             'status',
             'failure_reason',
+            'razorpay_payment_id',
             'updated_at',
         ]
     )
 
+    create_notification(
+        passenger=payment.passenger,
+        title='Payment Failed',
+        message=(
+            'Your payment could not be completed. '
+            'You can retry the payment from My Tickets.'
+        ),
+        notification_type='PAYMENT',
+    )
+
+    unread_count = (
+        Notification.objects
+        .filter(
+            passenger=payment.passenger,
+            is_read=False
+        )
+        .count()
+    )
+
     return JsonResponse(
         {
-            'success': True
+            'success': True,
+            'unread_notification_count': unread_count,
         }
     )
 
@@ -3917,4 +4035,122 @@ def check_seat_availability(request):
             'success': True,
             'available_seats': available_seats,
         }
+    )
+
+@login_required
+def notifications(request):
+
+    if not request.user.groups.filter(
+        name='Passengers'
+    ).exists():
+        messages.error(
+            request,
+            'Only passengers can view notifications.'
+        )
+        return redirect('core:home')
+
+    notifications = (
+        Notification.objects
+        .filter(
+            passenger=request.user
+        )
+        .select_related('ticket')
+        .order_by('-created_at')
+    )
+
+    return render(
+        request,
+        'buses/notifications.html',
+        {
+            'notifications': notifications,
+        }
+    )
+
+@login_required
+@require_POST
+def mark_notification_read(request, notification_id):
+
+    if not request.user.groups.filter(
+        name='Passengers'
+    ).exists():
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'Passenger access required.'
+            },
+            status=403
+        )
+
+    notification = get_object_or_404(
+        Notification,
+        id=notification_id,
+        passenger=request.user
+    )
+
+    notification.is_read = True
+
+    notification.save(
+        update_fields=['is_read']
+    )
+
+    return redirect(
+        'buses:notifications'
+    )
+
+
+@login_required
+@require_POST
+def mark_notification_unread(request, notification_id):
+
+    if not request.user.groups.filter(
+        name='Passengers'
+    ).exists():
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'Passenger access required.'
+            },
+            status=403
+        )
+
+    notification = get_object_or_404(
+        Notification,
+        id=notification_id,
+        passenger=request.user
+    )
+
+    notification.is_read = False
+
+    notification.save(
+        update_fields=['is_read']
+    )
+
+    return redirect(
+        'buses:notifications'
+    )
+
+@login_required
+@require_POST
+def mark_all_notifications_read(request):
+
+    if not request.user.groups.filter(
+        name='Passengers'
+    ).exists():
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'Passenger access required.'
+            },
+            status=403
+        )
+
+    Notification.objects.filter(
+        passenger=request.user,
+        is_read=False
+    ).update(
+        is_read=True
+    )
+
+    return redirect(
+        'buses:notifications'
     )

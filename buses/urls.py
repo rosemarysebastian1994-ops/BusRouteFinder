@@ -107,6 +107,30 @@ urlpatterns = [
     ),
 
     path(
+        'notifications/',
+        views.notifications,
+        name='notifications'
+    ),
+
+    path(
+        'notifications/mark-all-read/',
+        views.mark_all_notifications_read,
+        name='mark_all_notifications_read'
+    ),
+
+    path(
+        'notifications/<int:notification_id>/read/',
+        views.mark_notification_read,
+        name='mark_notification_read'
+    ),
+
+    path(
+        'notifications/<int:notification_id>/unread/',
+        views.mark_notification_unread,
+        name='mark_notification_unread'
+    ),
+
+    path(
         'tickets/<int:ticket_id>/payment/',
         views.ticket_payment,
         name='ticket_payment'

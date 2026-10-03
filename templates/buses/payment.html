@@ -175,13 +175,18 @@
                 response
             );
 
-
             const errorDescription =
                 response.error &&
                 response.error.description
                     ? response.error.description
                     : 'Payment could not be completed.';
 
+            const razorpayPaymentId =
+                response.error &&
+                response.error.metadata &&
+                response.error.metadata.payment_id
+                    ? response.error.metadata.payment_id
+                    : '';
 
             const formData =
                 new FormData();
@@ -192,6 +197,10 @@
                 "{{ payment.razorpay_order_id }}"
             );
 
+            formData.append(
+                'razorpay_payment_id',
+                razorpayPaymentId
+            );
 
             formData.append(
                 'error_description',
@@ -204,7 +213,6 @@
                 '{{ csrf_token }}'
             );
 
-
             fetch(
                 "{% url 'buses:payment_failure' %}",
                 {
@@ -216,6 +224,43 @@
                     }
                 }
             )
+            .then(function (response) {
+
+                if (!response.ok) {
+                    throw new Error(
+                        'Failed to record payment failure.'
+                    );
+                }
+
+                return response.json();
+
+            })
+            .then(function (data) {
+
+                if (!data.success) {
+                    throw new Error(
+                        data.message ||
+                        'Unable to record payment failure.'
+                    );
+                }
+
+                const notificationCount =
+                    document.getElementById(
+                        'notification-count'
+                    );
+
+                if (notificationCount) {
+
+                    notificationCount.textContent =
+                        data.unread_notification_count;
+
+                    notificationCount.style.display =
+                        data.unread_notification_count > 0
+                            ? 'inline-block'
+                            : 'none';
+                }
+
+            })
             .catch(function (error) {
 
                 console.error(
