@@ -25,7 +25,6 @@ urlpatterns = [
     path('stops/', views.stops_list, name='stops'),
     path('stops/<int:stop_id>/', views.stop_detail, name='stop_detail'),
     path( '<int:route_id>/', views.route_detail, name='route_detail' ),
-    path('search/', views.route_search, name='route_search'),
 
     # Route Management
     path('management/', views.route_management, name='route_management'),
