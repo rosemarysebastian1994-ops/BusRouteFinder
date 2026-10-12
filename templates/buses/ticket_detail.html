@@ -158,8 +158,12 @@
 
                     <p>
                         <strong>Bus:</strong>
-                        {{ ticket.schedule.route.bus.bus_name }}
-                        ({{ ticket.schedule.route.bus.bus_number }})
+                        {% if ticket.schedule.bus %}
+                            {{ ticket.schedule.bus.bus_name }}
+                            {{ ticket.schedule.bus.bus_number }}
+                        {% else %}
+                            No bus has been assigned to this schedule
+                        {% endif %}
                     </p>
 
 

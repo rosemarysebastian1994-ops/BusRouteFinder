@@ -25,6 +25,7 @@ urlpatterns = [
     path('routes/', include('routes.urls')),
     path('accounts/', include('accounts.urls')),
     path('buses/', include('buses.urls')),
+    path('api/buses/', include('buses.api_urls')),
 ]
 
 urlpatterns += static(

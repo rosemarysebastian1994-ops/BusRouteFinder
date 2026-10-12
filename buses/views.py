@@ -12,7 +12,7 @@ from routes.models import Route, RouteStop, BusSchedule
 from math import radians, sin, cos, sqrt, atan2
 from decimal import Decimal
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from .models import Bus, BusLocation, BusStopVisit, Notification, Ticket, Payment
@@ -40,18 +40,12 @@ def bus_detail(request, bus_id):
         id=bus_id
     )
 
-    routes = (
-        bus.routes
-        .all()
-        .order_by('route_name')
-    )
-
     return render(
         request,
         'buses/bus_detail.html',
         {
             'bus': bus,
-            'routes': routes,
+            'route': bus.current_route,
         }
     )
 
@@ -65,7 +59,7 @@ def bus_timings(request, bus_id):
     schedules = (
         BusSchedule.objects
         .filter(
-            route__bus=bus,
+            route=bus.current_route,
             is_active=True
         )
         .select_related('route')
@@ -91,7 +85,7 @@ def driver_tracking(request):
         Bus.objects
         .select_related('current_route')
         .prefetch_related(
-            'routes__route_stops__stop'
+            'current_route__route_stops__stop'
         )
         .filter(driver=request.user)
         .first()
@@ -103,8 +97,9 @@ def driver_tracking(request):
 
         route_data[str(bus.id)] = {}
 
-        for route in bus.routes.all():
+        route = bus.current_route
 
+        if route:
             route_data[str(bus.id)][str(route.id)] = {
                 'routeName': route.route_name,
                 'stops': [
@@ -1939,6 +1934,25 @@ def live_buses(request):
 
 @login_required
 def live_bus_locations(request):
+    # -------------------------------------------------
+    # LIVE / STOPPED COUNTS
+    # -------------------------------------------------
+
+    total_buses = Bus.objects.count()
+
+    live_threshold = (
+            timezone.now() - timedelta(seconds=60)
+    )
+
+    live_count = BusLocation.objects.filter(
+        is_tracking=True,
+        updated_at__gte=live_threshold,
+    ).values('bus_id').distinct().count()
+
+    stopped_count = max(
+        0,
+        total_buses - live_count
+    )
 
     locations = (
         BusLocation.objects
@@ -2429,6 +2443,8 @@ def live_bus_locations(request):
     return JsonResponse({
         'success': True,
         'locations': data,
+        'live_count': live_count,
+        'stopped_count': stopped_count,
     })
 
 @login_required
@@ -2504,438 +2520,570 @@ def set_bus_route(request):
 
 @staff_member_required
 def schedule_stops(request):
-
     schedule_id = request.GET.get('schedule_id')
-
     if not schedule_id:
-        return JsonResponse(
-            {
-                'success': False,
-                'message': 'Schedule ID is required.'
-            },
-            status=400
-        )
+        return JsonResponse({'stops': []})
 
-    schedule = get_object_or_404(
-        BusSchedule.objects.select_related('route'),
-        id=schedule_id
-    )
+    schedule = get_object_or_404(BusSchedule, id=schedule_id)
+    # Your route has route_stops__stop prefetch
+    route_stops = schedule.route.route_stops.all().order_by('stop_order').select_related('stop')
 
-    route_stops = (
-        RouteStop.objects
-        .filter(route=schedule.route)
-        .select_related('stop')
-        .order_by('stop_order')
-    )
+    stops_data = []
+    for rs in route_stops:
+        stops_data.append({
+            'route_stop_id': rs.id,  # ID for booking (RouteStop ID)
+            'stop_name': rs.stop.name,  # <- This is what JS needs
+            'stop_id': rs.stop.id,
+            'order': rs.stop_order,
+        })
 
-    stops = [
-        {
-            'id': route_stop.id,
-            'name': route_stop.stop.name,
-            'order': route_stop.stop_order,
-        }
-        for route_stop in route_stops
-    ]
-
-    return JsonResponse(
-        {
-            'success': True,
-            'stops': stops,
-        }
-    )
+    return JsonResponse({'stops': stops_data})
 
 from routes.utils import calculate_route_fare
 
 @login_required
 def book_ticket(request):
-
-    if not request.user.groups.filter(
-        name='Passengers'
-    ).exists():
-
-        messages.error(
-            request,
-            'Only passengers can book tickets.'
-        )
-
-        return redirect(
-            'core:home'
-        )
+    if not request.user.groups.filter(name='Passengers').exists():
+        messages.error(request, 'Only passengers can book tickets.')
+        return redirect('core:home')
 
     if request.method == 'POST':
+        form = TicketBookingForm(request.POST)
 
-        form = TicketBookingForm(
-            request.POST
-        )
+        # Get selected seats from seat map
+        selected_seats_raw = request.POST.get('selected_seats', '[]')
+        try:
+            selected_seats = json.loads(selected_seats_raw) if selected_seats_raw else []
+            selected_seats = [int(s) for s in selected_seats]
+        except (json.JSONDecodeError, ValueError, TypeError):
+            selected_seats = []
 
         if form.is_valid():
+            schedule = form.cleaned_data['schedule']
+            source_stop = form.cleaned_data['source_stop']
+            destination_stop = form.cleaned_data['destination_stop']
+            journey_date = form.cleaned_data['journey_date']
 
-            schedule = (
-                form.cleaned_data['schedule']
-            )
+            now = timezone.localtime()
+            current_date = now.date()
 
-            source_stop = (
-                form.cleaned_data['source_stop']
-            )
-
-            destination_stop = (
-                form.cleaned_data['destination_stop']
-            )
-
-            journey_date = (
-                form.cleaned_data['journey_date']
-            )
-
-            passenger_count = (
-                form.cleaned_data['passenger_count']
-            )
-
-            # -----------------------------------------
-            # CALCULATE FARE
-            # -----------------------------------------
-
-            try:
-
-                fare_per_passenger = (
-                    calculate_route_fare(
-                        source_stop,
-                        destination_stop,
-                    )
+            if journey_date < current_date:
+                form.add_error(
+                    "journey_date",
+                    "You cannot book a journey for a past date."
+                )
+                return render(
+                    request,
+                    "buses/book_ticket.html",
+                    {"form": form},
                 )
 
+            if journey_date == current_date:
+                # Calculate the departure time at the selected boarding point.
+                route_stops = list(
+                    RouteStop.objects.filter(route_id=schedule.route_id)
+                    .order_by("stop_order")
+                )
+
+                elapsed_minutes = 0
+
+                for route_stop in route_stops:
+                    if route_stop.id == source_stop.id:
+                        break
+
+                    elapsed_minutes += route_stop.travel_time_minutes
+                else:
+                    form.add_error(
+                        None,
+                        "The selected boarding point is not on this route."
+                    )
+                    return render(
+                        request,
+                        "buses/book_ticket.html",
+                        {"form": form},
+                    )
+
+                boarding_datetime = timezone.make_aware(
+                    datetime.combine(
+                        journey_date,
+                        schedule.departure_time,
+                    )
+                ) + timedelta(minutes=elapsed_minutes)
+
+                if now >= boarding_datetime:
+                    form.add_error(
+                        None,
+                        "This bus has already departed from your selected boarding point. "
+                        "Please choose another schedule."
+                    )
+                    return render(
+                        request,
+                        "buses/book_ticket.html",
+                        {"form": form},
+                    )
+
+            # Passenger count = number of selected seats
+            if selected_seats:
+                passenger_count = len(selected_seats)
+            else:
+                passenger_count = form.cleaned_data.get('passenger_count', 1)
+
+            if passenger_count < 1:
+                form.add_error(None, "Please select at least one seat on the map.")
+                return render(request, 'buses/book_ticket.html', {'form': form, 'selected_seats': selected_seats})
+
+            # Fare
+            try:
+                fare_per_passenger = calculate_route_fare(source_stop, destination_stop)
             except ValidationError as error:
+                form.add_error(None, str(error))
+                return render(request, 'buses/book_ticket.html', {'form': form, 'selected_seats': selected_seats})
+
+            total_amount = fare_per_passenger * Decimal(passenger_count)
+            amount_paise = int(total_amount * 100)
+
+            # 1. Check overall availability for this stretch
+            try:
+                available = get_available_seats(
+                    schedule=schedule,
+                    journey_date=journey_date,
+                    source_stop=source_stop,
+                    destination_stop=destination_stop,
+                )
+
+            except Exception:
+                import logging
+
+                logging.getLogger(__name__).exception(
+                    "Availability check failed during ticket booking."
+                )
 
                 form.add_error(
                     None,
-                    str(error)
+                    "Unable to verify seat availability. "
+                    "Please try again."
                 )
 
                 return render(
                     request,
                     'buses/book_ticket.html',
                     {
-                        'form': form
+                        'form': form,
+                        'selected_seats': selected_seats,
                     }
                 )
 
-            total_amount = (
-                fare_per_passenger
-                * Decimal(passenger_count)
-            )
-
-            amount_paise = int(
-                total_amount * 100
-            )
-
-            # -----------------------------------------
-            # CREATE RAZORPAY ORDER
-            # -----------------------------------------
-
-            client = razorpay.Client(
-                auth=(
-                    settings.RAZORPAY_KEY_ID,
-                    settings.RAZORPAY_KEY_SECRET,
+            if available < passenger_count:
+                form.add_error(
+                    None,
+                    f"Only {available} seats are available for this journey segment."
                 )
-            )
 
-            try:
-
-                razorpay_order = client.order.create(
+                return render(
+                    request,
+                    'buses/book_ticket.html',
                     {
+                        'form': form,
+                        'selected_seats': selected_seats,
+                    }
+                )
+
+            # 2. Check if specific seat numbers are already booked (with overlap check)
+            if selected_seats:
+                # Get all active tickets for same bus + date
+                overlapping_tickets = Ticket.objects.filter(
+                    schedule=schedule,
+                    journey_date=journey_date,
+                ).exclude(status='CANCELLED').select_related('source_stop', 'destination_stop')
+
+                already_booked_numbers = []
+                for t in overlapping_tickets:
+                    # --- OVERLAP LOGIC ---
+                    # If ticket's route overlaps with requested route, its seats are blocked
+                    try:
+                        # Use stop_order field - change to 'order' if your model uses 'order'
+                        t_src_order = t.source_stop.stop_order
+                        t_dst_order = t.destination_stop.stop_order
+                        req_src_order = source_stop.stop_order
+                        req_dst_order = destination_stop.stop_order
+
+                        # Overlap if NOT (t ends before req starts OR t starts after req ends)
+                        is_overlap = not (t_dst_order <= req_src_order or t_src_order >= req_dst_order)
+                    except AttributeError:
+                        # If your model uses 'order' instead of 'stop_order'
+                        try:
+                            t_src_order = t.source_stop.order
+                            t_dst_order = t.destination_stop.order
+                            req_src_order = source_stop.order
+                            req_dst_order = destination_stop.order
+                            is_overlap = not (t_dst_order <= req_src_order or t_src_order >= req_dst_order)
+                        except:
+                            is_overlap = True  # If no order field, assume all overlap for safety
+
+                    if is_overlap and hasattr(t, 'seat_numbers') and t.seat_numbers:
+                        already_booked_numbers.extend(t.seat_numbers)
+
+                # For old tickets where seat_numbers = [], we need to block first N seats
+                # Count how many old-style bookings exist
+                old_style_count = 0
+                for t in overlapping_tickets:
+                    seats = getattr(t, 'seat_numbers', None)
+                    if not seats or len(seats) == 0:
+                        # Check overlap again for old tickets
+                        try:
+                            is_overlap = not (t.destination_stop.stop_order <= source_stop.stop_order or t.source_stop.stop_order >= destination_stop.stop_order)
+                        except:
+                            is_overlap = True
+                        if is_overlap:
+                            old_style_count += t.passenger_count
+
+                if old_style_count > 0:
+                    already_booked_numbers.extend(list(range(1, old_style_count + 1)))
+
+                conflict = set(selected_seats) & set(already_booked_numbers)
+                if conflict:
+                    form.add_error(None, f"Seats {', '.join(map(str, sorted(conflict)))} are already booked for this route. Please select different seats. Grey seats are booked.")
+                    return render(request, 'buses/book_ticket.html', {'form': form, 'selected_seats': selected_seats})
+
+            # 3. Create Razorpay order
+            if not settings.RAZORPAY_KEY_ID or not settings.RAZORPAY_KEY_SECRET:
+                print("RAZORPAY KEYS MISSING - Using fake order")
+                razorpay_order = {'id': f"order_fake_{uuid.uuid4().hex[:10]}"}
+            else:
+                client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+                try:
+                    razorpay_order = client.order.create({
                         'amount': amount_paise,
                         'currency': 'INR',
-                        'receipt': (
-                            f'BRF-{uuid.uuid4().hex[:10].upper()}'
-                        ),
+                        'receipt': f'BRF-{uuid.uuid4().hex[:10].upper()}',
                         'notes': {
-                            'passenger_id': str(
-                                request.user.id
-                            ),
-                            'schedule_id': str(
-                                schedule.id
-                            ),
-                            'source_stop_id': str(
-                                source_stop.id
-                            ),
-                            'destination_stop_id': str(
-                                destination_stop.id
-                            ),
-                            'journey_date': str(
-                                journey_date
-                            ),
-                            'passenger_count': str(
-                                passenger_count
-                            ),
+                            'passenger_id': str(request.user.id),
+                            'schedule_id': str(schedule.id),
+                            'source_stop_id': str(source_stop.id),
+                            'destination_stop_id': str(destination_stop.id),
+                            'journey_date': str(journey_date),
+                            'passenger_count': str(passenger_count),
+                            'seats': ','.join(map(str, selected_seats)),
                         },
-                    }
-                )
+                    })
+                except Exception as e:
+                    print("Razorpay error:", e)
+                    messages.error(request, f'Payment gateway error: {e}')
+                    return render(request, 'buses/book_ticket.html', {
+                        'form': form,
+                        'selected_seats': selected_seats,
+                        'razorpay_error': str(e)
+                    })
 
-            except Exception:
-
-                messages.error(
-                    request,
-                    'Unable to start the payment. '
-                    'Please try again.'
-                )
-
-                return redirect(
-                    'buses:book_ticket'
-                )
-
-            # -----------------------------------------
-            # CREATE PAYMENT RESERVATION
-            # -----------------------------------------
-
+            # 4. Create Payment with seat_numbers
             payment = Payment.objects.create(
-
                 passenger=request.user,
-
                 schedule=schedule,
-
                 source_stop=source_stop,
-
                 destination_stop=destination_stop,
-
                 journey_date=journey_date,
-
                 passenger_count=passenger_count,
-
-                fare_per_passenger=(
-                    fare_per_passenger
-                ),
-
+                fare_per_passenger=fare_per_passenger,
                 total_amount=total_amount,
-
-                razorpay_order_id=(
-                    razorpay_order['id']
-                ),
-
+                razorpay_order_id=razorpay_order['id'],
                 amount=total_amount,
-
                 currency='INR',
-
                 status='CREATED',
             )
 
-            return render(
-                request,
-                'buses/payment.html',
-                {
-                    'payment': payment,
-                    'razorpay_key_id': (
-                        settings.RAZORPAY_KEY_ID
-                    ),
-                }
-            )
+            # IMPORTANT: Save seat numbers to payment
+            if hasattr(payment, 'seat_numbers'):
+                payment.seat_numbers = selected_seats
+                payment.save(update_fields=['seat_numbers'])
+                print(f"Payment {payment.id} saved with seats: {selected_seats}")
+
+            return render(request, 'buses/payment.html', {
+                'payment': payment,
+                'razorpay_key_id': settings.RAZORPAY_KEY_ID,
+                'selected_seats': selected_seats,
+            })
+        else:
+            print("FORM ERRORS:", form.errors)
+            return render(request, 'buses/book_ticket.html', {
+                'form': form,
+                'selected_seats': selected_seats
+            })
 
     else:
+        form = TicketBookingForm(initial={'journey_date': timezone.now().date()})
 
-        form = TicketBookingForm()
+    return render(request, 'buses/book_ticket.html', {'form': form})
 
-    return render(
-        request,
-        'buses/book_ticket.html',
-        {
-            'form': form
-        }
-    )
+# --- ALSO REPLACE get_booked_seats WITH THIS ---
+from django.utils.dateparse import parse_date
+import logging
+logger = logging.getLogger(__name__)
 
 @login_required
-def calculate_booking_fare(request):
-
-    if not request.user.groups.filter(
-        name='Passengers'
-    ).exists():
-
+def get_booked_seats(request):
+    if not request.user.groups.filter(name="Passengers").exists():
         return JsonResponse(
-            {
-                'success': False,
-                'message': 'Passenger access required.'
-            },
-            status=403
+            {"error": "Passenger access required."},
+            status=403,
         )
 
-    schedule_id = request.GET.get(
-        'schedule_id'
-    )
-
-    source_stop_id = request.GET.get(
-        'source_stop_id'
-    )
-
-    destination_stop_id = request.GET.get(
-        'destination_stop_id'
-    )
+    schedule_id = request.GET.get("schedule_id")
+    journey_date_raw = request.GET.get("journey_date")
+    source_id = request.GET.get("source_stop_id")
+    destination_id = request.GET.get("destination_stop_id")
 
     if not all([
         schedule_id,
-        source_stop_id,
-        destination_stop_id,
+        journey_date_raw,
+        source_id,
+        destination_id,
     ]):
-
         return JsonResponse(
-            {
-                'success': False,
-                'message': (
-                    'Schedule, source and destination '
-                    'are required.'
-                )
-            },
-            status=400
+            {"error": "Schedule, date, boarding and dropping points are required."},
+            status=400,
+        )
+
+    journey_date = parse_date(journey_date_raw)
+    if journey_date is None:
+        return JsonResponse(
+            {"error": "Invalid journey date."},
+            status=400,
         )
 
     schedule = get_object_or_404(
-        BusSchedule.objects.select_related(
-            'route'
-        ),
+        BusSchedule.objects.select_related("route", "bus"),
         id=schedule_id,
-        is_active=True
+        is_active=True,
     )
 
-    source_stop = get_object_or_404(
-        RouteStop,
-        id=source_stop_id
-    )
+    source_stop = get_object_or_404(RouteStop, id=source_id)
+    destination_stop = get_object_or_404(RouteStop, id=destination_id)
 
-    destination_stop = get_object_or_404(
-        RouteStop,
-        id=destination_stop_id
-    )
-
-    if source_stop.route_id != schedule.route_id:
-
+    if (
+        source_stop.route_id != schedule.route_id
+        or destination_stop.route_id != schedule.route_id
+    ):
         return JsonResponse(
-            {
-                'success': False,
-                'message': (
-                    'Source stop does not belong '
-                    'to the selected route.'
-                )
-            },
-            status=400
+            {"error": "Selected stops do not belong to this schedule."},
+            status=400,
         )
 
-    if destination_stop.route_id != schedule.route_id:
+    if destination_stop.stop_order <= source_stop.stop_order:
+        return JsonResponse(
+            {"error": "Destination must come after boarding point."},
+            status=400,
+        )
 
+    capacity = schedule.bus.capacity
+
+    try:
+        tickets = list(
+            Ticket.objects.filter(
+                schedule=schedule,
+                journey_date=journey_date,
+            )
+            .exclude(status="CANCELLED")
+            .select_related("source_stop", "destination_stop")
+            .order_by("id")
+        )
+
+        overlapping_tickets = [
+            ticket
+            for ticket in tickets
+            if ticket_overlaps_segment(
+                ticket,
+                source_stop,
+                destination_stop,
+            )
+        ]
+
+        booked = set()
+        legacy_tickets = []
+
+        for ticket in overlapping_tickets:
+            raw_seats = ticket.seat_numbers
+
+            if isinstance(raw_seats, list) and raw_seats:
+                for value in raw_seats:
+                    try:
+                        seat_number = int(value)
+                    except (TypeError, ValueError):
+                        continue
+
+                    if 1 <= seat_number <= capacity:
+                        booked.add(seat_number)
+            else:
+                legacy_tickets.append(ticket)
+
+        # Legacy tickets have no recorded seat numbers.
+        # Allocate placeholder seats deterministically.
+        for ticket in legacy_tickets:
+            try:
+                count = max(0, int(ticket.passenger_count))
+            except (TypeError, ValueError):
+                count = 0
+
+            for seat_number in range(1, capacity + 1):
+                if count <= 0:
+                    break
+
+                if seat_number not in booked:
+                    booked.add(seat_number)
+                    count -= 1
+
+        return JsonResponse({
+            "booked": sorted(booked),
+            "capacity": capacity,
+        })
+
+    except Exception:
+        logger.exception(
+            "Could not retrieve booked seats for schedule %s on %s",
+            schedule_id,
+            journey_date,
+        )
+        return JsonResponse(
+            {"error": "Could not retrieve seat availability. Please retry."},
+            status=500,
+        )
+
+def ticket_overlaps_segment(ticket, source_stop, destination_stop):
+    """
+    Return True when a ticket occupies any part of the
+    requested journey segment.
+    RouteStop.stop_order determines the route sequence.
+    """
+    if (
+        ticket.source_stop_id is None
+        or ticket.destination_stop_id is None
+    ):
+        # Unknown journey segment: treat as a conflict for safety.
+        return True
+
+    ticket_source = ticket.source_stop
+    ticket_destination = ticket.destination_stop
+
+    # All stops must belong to the same route.
+    if not (
+        ticket_source.route_id
+        == ticket_destination.route_id
+        == source_stop.route_id
+        == destination_stop.route_id
+    ):
+        return True
+
+    return not (
+        ticket_destination.stop_order <= source_stop.stop_order
+        or ticket_source.stop_order >= destination_stop.stop_order
+    )
+
+
+@login_required
+def calculate_booking_fare(request):
+    if not request.user.groups.filter(name="Passengers").exists():
+        return JsonResponse(
+            {"success": False, "message": "Passenger access required."},
+            status=403,
+        )
+
+    schedule_id = request.GET.get("schedule_id")
+    source_id = request.GET.get("source_stop_id")
+    destination_id = request.GET.get("destination_stop_id")
+
+    if not all([schedule_id, source_id, destination_id]):
         return JsonResponse(
             {
-                'success': False,
-                'message': (
-                    'Destination stop does not belong '
-                    'to the selected route.'
-                )
+                "success": False,
+                "message": "Schedule, source and destination are required.",
             },
-            status=400
+            status=400,
+        )
+
+    schedule = get_object_or_404(
+        BusSchedule.objects.select_related("route", "bus"),
+        id=schedule_id,
+        is_active=True,
+    )
+
+    source_stop = get_object_or_404(RouteStop, id=source_id)
+    destination_stop = get_object_or_404(RouteStop, id=destination_id)
+
+    if (
+        source_stop.route_id != schedule.route_id
+        or destination_stop.route_id != schedule.route_id
+    ):
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Both stops must belong to the selected schedule's route.",
+            },
+            status=400,
         )
 
     if destination_stop.stop_order <= source_stop.stop_order:
         return JsonResponse(
             {
-                'success': False,
-                'message': (
-                    'Destination stop must come after '
-                    'the source stop.'
-                )
+                "success": False,
+                "message": "Destination must come after the boarding point.",
             },
-            status=400
+            status=400,
         )
 
     try:
-
-        fare = calculate_route_fare(
-            source_stop,
-            destination_stop
-        )
-
+        fare = calculate_route_fare(source_stop, destination_stop)
     except ValidationError as error:
-
         return JsonResponse(
-            {
-                'success': False,
-                'message': str(error)
-            },
-            status=400
+            {"success": False, "message": str(error)},
+            status=400,
         )
 
     return JsonResponse(
-        {
-            'success': True,
-            'fare': float(fare),
-        }
+        {"success": True, "fare": float(fare)},
     )
 
 @login_required
 def booking_schedule_stops(request):
-
-    if not request.user.groups.filter(
-        name='Passengers'
-    ).exists():
-
+    if not request.user.groups.filter(name="Passengers").exists():
         return JsonResponse(
-            {
-                'success': False,
-                'message': 'Passenger access required.'
-            },
-            status=403
+            {"success": False, "message": "Passenger access required."},
+            status=403,
         )
 
-    schedule_id = request.GET.get(
-        'schedule_id'
-    )
-
+    schedule_id = request.GET.get("schedule_id")
     if not schedule_id:
-
         return JsonResponse(
-            {
-                'success': False,
-                'message': 'Schedule ID is required.'
-            },
-            status=400
+            {"success": False, "message": "Schedule ID is required."},
+            status=400,
         )
 
     schedule = get_object_or_404(
-        BusSchedule.objects.select_related(
-            'route',
-            'route__bus'
-        ),
+        BusSchedule.objects.select_related("route", "bus"),
         id=schedule_id,
-        is_active=True
+        is_active=True,
     )
 
     route_stops = (
-        RouteStop.objects
-        .filter(
-            route=schedule.route
-        )
-        .select_related('stop')
-        .order_by('stop_order')
+        RouteStop.objects.filter(route_id=schedule.route_id)
+        .select_related("stop")
+        .order_by("stop_order")
     )
 
     stops = [
         {
-            'id': route_stop.id,
-            'name': route_stop.stop.name,
-            'order': route_stop.stop_order,
-            'distance_from_start_km': float(
+            "id": route_stop.id,
+            "route_stop_id": route_stop.id,
+            "name": route_stop.stop.name,
+            "stop_name": route_stop.stop.name,
+            "order": route_stop.stop_order,
+            "stop_order": route_stop.stop_order,
+            "distance_from_start_km": float(
                 route_stop.distance_from_start_km
             ),
         }
         for route_stop in route_stops
     ]
 
-    return JsonResponse(
-        {
-            'success': True,
-            'stops': stops,
-        }
-    )
-
-    return JsonResponse(
-        {
-            'success': True,
-            'stops': stops,
-        }
-    )
+    return JsonResponse({"success": True, "stops": stops})
 
 @login_required
 def ticket_payment(request, ticket_id):
@@ -2944,7 +3092,7 @@ def ticket_payment(request, ticket_id):
         Ticket.objects.select_related(
             'schedule',
             'schedule__route',
-            'schedule__route__bus',
+            'schedule__bus',
         ),
         id=ticket_id,
         passenger=request.user
@@ -2989,7 +3137,7 @@ def ticket_detail(request, ticket_id):
         Ticket.objects.select_related(
             'schedule',
             'schedule__route',
-            'schedule__route__bus',
+            'schedule__bus',
             'source_stop__stop',
             'destination_stop__stop',
             'payment',
@@ -3032,7 +3180,7 @@ def my_tickets(request):
         .select_related(
             'schedule',
             'schedule__route',
-            'schedule__route__bus',
+            'schedule__bus',
             'source_stop__stop',
             'destination_stop__stop',
         )
@@ -3052,7 +3200,7 @@ def my_tickets(request):
         .select_related(
             'schedule',
             'schedule__route',
-            'schedule__route__bus',
+            'schedule__bus',
             'source_stop__stop',
             'destination_stop__stop',
         )
@@ -3085,7 +3233,7 @@ def cancel_ticket(request, ticket_id):
         Ticket.objects.select_related(
             'schedule',
             'schedule__route',
-            'schedule__route__bus',
+            'schedule__bus',
             'payment',
         ),
         id=ticket_id,
@@ -3322,7 +3470,7 @@ def download_ticket(request, ticket_id):
         Ticket.objects.select_related(
             'schedule',
             'schedule__route',
-            'schedule__route__bus',
+            'schedule__bus',
             'source_stop__stop',
             'destination_stop__stop',
             'payment',
@@ -3397,8 +3545,10 @@ def download_ticket(request, ticket_id):
         [
             'Bus',
             (
-                f'{ticket.schedule.route.bus.bus_name} '
-                f'({ticket.schedule.route.bus.bus_number})'
+                f'{ticket.schedule.bus.bus_name} '
+                f'({ticket.schedule.bus.bus_number})'
+                if ticket.schedule.bus
+                else 'Bus not assigned'
             )
         ],
         [
@@ -3676,6 +3826,7 @@ def verify_payment(request):
                 payment.fare_per_passenger
             ),
             status='CONFIRMED',
+            seat_numbers=payment.seat_numbers,
         )
 
         payment.ticket = ticket
@@ -3849,7 +4000,7 @@ def payment_page(request, payment_id):
         Payment.objects.select_related(
             'schedule',
             'schedule__route',
-            'schedule__route__bus',
+            'schedule__bus',
             'source_stop__stop',
             'destination_stop__stop',
         ),
@@ -4154,3 +4305,20 @@ def mark_all_notifications_read(request):
     return redirect(
         'buses:notifications'
     )
+
+def bus_list_api(request):
+    buses = Bus.objects.all()
+
+    data = [
+        {
+            'id': bus.id,
+            'bus_number': bus.bus_number,
+            'bus_name': bus.bus_name,
+            'bus_type': bus.bus_type,
+            'operator': bus.operator,
+            'capacity': bus.capacity,
+        }
+        for bus in buses
+    ]
+
+    return JsonResponse(data, safe=False)

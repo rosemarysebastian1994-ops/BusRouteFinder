@@ -217,25 +217,29 @@ def toggle_favourite_stop(request, stop_id):
         )
     )
 
+
 @login_required
 def favourites(request):
 
     favourite_routes = (
         FavouriteRoute.objects
         .filter(user=request.user)
-        .select_related(
-            'route',
-            'route__bus'
-        )
+        .select_related('route')
+        .prefetch_related('route__schedules__bus')
     )
 
     favourite_stops = (
         FavouriteStop.objects
         .filter(user=request.user)
-        .select_related(
-            'stop'
-        )
+        .select_related('stop')
     )
+
+    for favourite in favourite_routes:
+        favourite.buses = list({
+            schedule.bus_id: schedule.bus
+            for schedule in favourite.route.schedules.all()
+            if schedule.bus is not None
+        }.values())
 
     return render(
         request,

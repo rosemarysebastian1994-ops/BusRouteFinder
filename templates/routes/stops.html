@@ -233,37 +233,45 @@
                                         <div class="list-group
                                                     list-group-flush">
 
-                                            {% for route_stop in route_stops %}
+                                        {% for route_stop in route_stops %}
+
+                                            <div
+                                                class="list-group-item
+                                                       px-0
+                                                       border-0
+                                                       border-bottom">
 
                                                 <div
-                                                    class="list-group-item
-                                                           px-0
-                                                           border-0
-                                                           border-bottom">
+                                                    class="d-flex
+                                                           justify-content-between
+                                                           align-items-center">
 
-                                                    <div
-                                                        class="d-flex
-                                                               justify-content-between
-                                                               align-items-center">
+                                                    <div>
 
-                                                        <div>
+                                                        <div
+                                                            class="fw-semibold">
 
-                                                            <div
-                                                                class="fw-semibold">
-
-                                                                {{ route_stop.route.route_name }}
-
-                                                            </div>
-
-                                                            <small
-                                                                class="text-muted">
-
-                                                                {{ route_stop.route.bus.bus_number }}
-
-                                                            </small>
+                                                            {{ route_stop.route.route_name }}
 
                                                         </div>
 
+                                                        {% for bus in route_stop.route.buses %}
+
+                                                            <small class="text-muted d-block">
+
+                                                                {{ bus.bus_number }}
+
+                                                            </small>
+
+                                                        {% empty %}
+
+                                                            <small class="text-muted">
+                                                                No buses assigned
+                                                            </small>
+
+                                                        {% endfor %}
+
+                                                    </div>
 
                                                         <span
                                                             class="badge

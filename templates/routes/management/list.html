@@ -121,17 +121,21 @@
                                     </td>
 
                                     <td>
+                                        {% for bus in route.buses %}
+                                            <span class="fw-semibold">
+                                                {{ bus.bus_number }}
+                                            </span>
+                                            <br>
+                                            <small class="text-muted">
+                                                {{ bus.bus_name }}
+                                            </small>
 
-                                        <span class="fw-semibold">
-                                            {{ route.bus.bus_number }}
-                                        </span>
-
-                                        <br>
-
-                                        <small class="text-muted">
-                                            {{ route.bus.bus_name }}
-                                        </small>
-
+                                            {% if not forloop.last %}
+                                                <hr class="my-1">
+                                            {% endif %}
+                                        {% empty %}
+                                            <span class="text-muted">No bus assigned</span>
+                                        {% endfor %}
                                     </td>
 
                                     <td>

@@ -2,6 +2,95 @@
 
 {% block content %}
 
+<style>
+    .stop-detail-card {
+        border-radius: 1rem;
+    }
+
+    .stop-route-card {
+        border-radius: 1rem;
+        transition: box-shadow 0.2s ease;
+    }
+
+    .stop-route-card:hover {
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .stop-bus-grid {
+        display: grid;
+        grid-template-columns: repeat(
+            auto-fit,
+            minmax(220px, 1fr)
+        );
+        gap: 0.85rem;
+    }
+
+    .stop-bus-item {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 0.9rem;
+        background: #f8faff;
+        border: 1px solid #e5eaf2;
+        border-radius: 0.8rem;
+        min-width: 0;
+    }
+
+    .stop-bus-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        flex-shrink: 0;
+        background: #e7f0ff;
+        color: #0d6efd;
+        border-radius: 10px;
+        font-size: 1.3rem;
+    }
+
+    .stop-bus-info {
+        min-width: 0;
+    }
+
+    .stop-bus-info h6 {
+        overflow-wrap: anywhere;
+    }
+
+    .stop-bus-number {
+        display: inline-block;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #0d6efd;
+        margin-bottom: 0.3rem;
+    }
+
+    .stop-bus-info p,
+    .stop-bus-info small {
+        overflow-wrap: anywhere;
+    }
+
+    .stop-route-title {
+        overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 767.98px) {
+        .stop-bus-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .stop-header-actions {
+            margin-left: 0 !important;
+            width: 100%;
+        }
+
+        .stop-header-actions form,
+        .stop-header-actions a {
+            width: 100%;
+        }
+    }
+</style>
+
 <div class="container py-5">
 
     <!-- Back Button -->
@@ -25,8 +114,8 @@
 
         <div class="card-body p-4 p-md-5">
 
-            <div class="d-flex align-items-center">
-
+            <div class="d-flex align-items-center
+                        flex-wrap gap-3">
                 <div
                     class="rounded-circle bg-primary bg-opacity-10
                            d-flex align-items-center justify-content-center
@@ -38,7 +127,7 @@
                 </div>
 
 
-                <div class="mr-5">
+                <div class="flex-grow-1">
 
                     <h1 class="fw-bold mb-1">
                         {{ stop.name }}
@@ -68,7 +157,7 @@
 
                     <form method="post"
                           action="{% url 'accounts:toggle_favourite_stop' stop.id %}"
-                          class="d-inline">
+                          class="d-inline stop-header-actions ms-auto">
 
                         {% csrf_token %}
 
@@ -99,7 +188,7 @@
                     {% else %}
 
                     <a href="{% url 'accounts:login' %}"
-                       class="btn btn-outline-danger">
+                       class="btn btn-outline-danger stop-header-actions ms-auto">
 
                         <i class="bi bi-heart me-1"></i>
                         Login to Favourite
@@ -156,72 +245,93 @@
 
                 <div class="col-12">
 
-                    <div class="card border-0 shadow-sm">
+                    <div class="card border-0 shadow-sm stop-route-card">
 
                         <div class="card-body p-4">
 
                             <!-- Route Header -->
 
-                            <div class="row align-items-center">
+                            <div class="row g-4 align-items-start">
 
-                                <div class="col-md-8">
+                                <!-- Route Name and Description -->
 
-                                    <div class="d-flex align-items-center mb-2">
+                                <div class="col-lg-5">
 
-                                        <span
-                                            class="badge bg-primary me-3 px-3 py-2">
+                                    <span class="badge bg-primary-subtle text-primary mb-2">
+                                        <i class="bi bi-signpost-2 me-1"></i>
+                                        Route
+                                    </span>
 
-                                            {{ route_stop.route.bus.get_bus_type_display }}
+                                    <h4 class="fw-bold stop-route-title mb-2">
+                                        {{ route_stop.route.route_name }}
+                                    </h4>
 
-                                        </span>
-
-                                        <h4 class="fw-bold mb-0">
-
-                                            {{ route_stop.route.route_name }}
-
-                                        </h4>
-
-                                    </div>
-
-
-                                    <p class="text-muted mb-0">
-
-                                        {{ route_stop.route.description }}
-
-                                    </p>
-
-                                </div>
-
-
-                                <div class="col-md-4 text-md-end mt-3 mt-md-0">
-
-                                    <div class="fw-bold fs-5">
-
-                                        {{ route_stop.route.bus.bus_number }}
-
-                                    </div>
-
-                                    <div class="text-muted">
-
-                                        {{ route_stop.route.bus.bus_name }}
-
-                                    </div>
-
-                                    {% if route_stop.route.bus.operator %}
-
-                                        <small class="text-muted">
-
-                                            Operated by
-                                            {{ route_stop.route.bus.operator }}
-
-                                        </small>
-
+                                    {% if route_stop.route.description %}
+                                        <p class="text-muted mb-0">
+                                            {{ route_stop.route.description }}
+                                        </p>
                                     {% endif %}
 
                                 </div>
 
-                            </div>
+                                <!-- Buses Assigned to This Route -->
 
+                                <div class="col-lg-7">
+
+                                    <h6 class="fw-bold mb-3">
+                                        <i class="bi bi-bus-front text-primary me-2"></i>
+                                        Available Buses
+                                    </h6>
+
+                                    <div class="stop-bus-grid">
+
+                                        {% for bus in route_stop.route.buses %}
+
+                                            <div class="stop-bus-item">
+
+                                                <div class="stop-bus-icon">
+                                                    <i class="bi bi-bus-front-fill"></i>
+                                                </div>
+
+                                                <div class="stop-bus-info">
+
+                                                    <span class="stop-bus-number">
+                                                        {{ bus.bus_number }}
+                                                    </span>
+
+                                                    <h6 class="fw-bold mb-1">
+                                                        {{ bus.bus_name }}
+                                                    </h6>
+
+                                                    <p class="text-muted small mb-1">
+                                                        {{ bus.get_bus_type_display }}
+                                                    </p>
+
+                                                    {% if bus.operator %}
+                                                        <small class="text-muted">
+                                                            <i class="bi bi-building me-1"></i>
+                                                            {{ bus.operator }}
+                                                        </small>
+                                                    {% endif %}
+
+                                                </div>
+
+                                            </div>
+
+                                        {% empty %}
+
+                                            <div class="text-muted small">
+                                                <i class="bi bi-info-circle me-1"></i>
+                                                No bus assigned
+                                            </div>
+
+                                        {% endfor %}
+
+                                    </div>
+
+                                </div>
+
+                            </div>
 
                             <hr class="my-4">
 

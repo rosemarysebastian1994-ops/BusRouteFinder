@@ -9,17 +9,13 @@ class RouteAdmin(admin.ModelAdmin):
     list_display = (
         'route_name',
         'id',
-        'bus',
     )
 
     list_filter = (
-        'bus',
     )
 
     search_fields = (
         'route_name',
-        'bus__bus_number',
-        'bus__bus_name',
     )
 
 

@@ -817,33 +817,40 @@
 
                         <div class="d-flex align-items-center justify-content-between gap-3">
 
-                            <div class="d-flex align-items-center gap-3">
-
-                                <div class="bus-icon">
-                                    <i class="bi bi-bus-front-fill"></i>
+                            <div>
+                                <div class="bus-number">
+                                    {% if route.search_schedules %}
+                                        {% with schedule=route.search_schedules.0 %}
+                                            {% if schedule.bus %}
+                                                {{ schedule.bus.bus_number }}
+                                            {% else %}
+                                                Bus not assigned
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% else %}
+                                        Bus not assigned
+                                    {% endif %}
                                 </div>
 
-                                <div>
-
-                                    <div class="bus-number">
-                                        {{ route.bus.bus_number }}
-                                    </div>
-
-                                    <div class="bus-name">
-                                        {{ route.bus.bus_name }}
-                                    </div>
-
+                                <div class="bus-name">
+                                    {% if route.search_schedules %}
+                                        {% with schedule=route.search_schedules.0 %}
+                                            {% if schedule.bus %}
+                                                {{ schedule.bus.bus_name }}
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% endif %}
                                 </div>
-
                             </div>
 
-
-                            {% if route.bus.bus_type %}
-
-                                <span class="bus-type-badge">
-                                    {{ route.bus.get_bus_type_display }}
-                                </span>
-
+                            {% if route.search_schedules %}
+                                {% with schedule=route.search_schedules.0 %}
+                                    {% if schedule.bus %}
+                                        <span class="bus-type-badge">
+                                            {{ schedule.bus.get_bus_type_display }}
+                                        </span>
+                                    {% endif %}
+                                {% endwith %}
                             {% endif %}
 
                         </div>
@@ -1001,6 +1008,29 @@
 
                                         <div class="schedule-card">
 
+                                            <div class="schedule-bus-info mb-3">
+                                                {% if schedule.bus %}
+                                                    <div class="fw-bold">
+                                                        <i class="bi bi-bus-front me-1"></i>
+                                                        {{ schedule.bus.bus_number }} - {{ schedule.bus.bus_name }}
+                                                    </div>
+
+                                                    <small class="text-muted">
+                                                        {{ schedule.bus.get_bus_type_display }}
+                                                    </small>
+
+                                                    {% if schedule.bus.operator %}
+                                                        <small class="text-muted d-block">
+                                                            Operated by {{ schedule.bus.operator }}
+                                                        </small>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <div class="text-muted">
+                                                        Bus not assigned
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+
                                             <!-- SCHEDULE HEADER -->
 
                                             <div class="schedule-header">
@@ -1140,29 +1170,6 @@
                             {% endif %}
 
                         </div>
-
-
-                        <!-- =================================================
-                             OPERATOR
-                        ================================================== -->
-
-                        {% if route.bus.operator %}
-
-                            <div class="operator-info">
-
-                                <i class="bi bi-building"></i>
-
-                                <span>
-                                    Operator:
-                                </span>
-
-                                <span class="operator-name">
-                                    {{ route.bus.operator }}
-                                </span>
-
-                            </div>
-
-                        {% endif %}
 
                     </div>
 

@@ -2536,19 +2536,8 @@ document.addEventListener(
                     // Calculate live/stopped counts
                     // ------------------------------------------------
 
-                    const liveCount =
-                        currentLocations.filter(
-                            location =>
-                                location.is_tracking
-                        ).length;
-
-
-                    const stoppedCount =
-                        currentLocations.filter(
-                            location =>
-                                !location.is_tracking
-                        ).length;
-
+                    const liveCount = data.live_count;
+                    const stoppedCount = data.stopped_count;
 
                     // ------------------------------------------------
                     // Status message

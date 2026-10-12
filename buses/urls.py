@@ -153,4 +153,6 @@ urlpatterns = [
         views.download_ticket,
         name='download_ticket'
     ),
+
+    path('booked-seats/', views.get_booked_seats, name='booked_seats'),
 ]

@@ -82,14 +82,17 @@
                                     <small class="text-muted d-block">
                                         Bus
                                     </small>
+                                    {% if schedule.bus %}
+                                        <strong>
+                                            {{ schedule.bus.bus_number }}
+                                        </strong>
 
-                                    <strong>
-                                        {{ schedule.route.bus.bus_number }}
-                                    </strong>
-
-                                    <span class="text-muted">
-                                        - {{ schedule.route.bus.bus_name }}
-                                    </span>
+                                        <span class="text-muted">
+                                            - {{ schedule.bus.bus_name }}
+                                        </span>
+                                    {% else %}
+                                        No bus assigned
+                                    {% endif %}
 
                                 </div>
 

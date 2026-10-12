@@ -10,12 +10,14 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+from dotenv import load_dotenv
+load_dotenv()
 import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+load_dotenv(BASE_DIR / '.env')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
@@ -67,6 +69,8 @@ INSTALLED_APPS = [
     'cloudinary',
     'cloudinary_storage',
 
+    'corsheaders',
+
     'accounts',
     'buses',
     'routes',
@@ -75,6 +79,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -200,3 +205,7 @@ RAZORPAY_KEY_ID = os.environ.get(
 RAZORPAY_KEY_SECRET = os.environ.get(
     'RAZORPAY_KEY_SECRET'
 )
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+]

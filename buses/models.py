@@ -283,6 +283,9 @@ class Ticket(models.Model):
         auto_now=True
     )
 
+    # Add this field if not exists
+    seat_numbers = models.JSONField(default=list, blank=True, help_text="Selected seat numbers like [12, 13]")
+
     class Meta:
         ordering = ['-created_at']
 
@@ -458,6 +461,8 @@ class Payment(models.Model):
     updated_at = models.DateTimeField(
         auto_now=True
     )
+
+    seat_numbers = models.JSONField(default=list, blank=True)
 
     def __str__(self):
         return self.razorpay_order_id

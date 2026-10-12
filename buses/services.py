@@ -63,19 +63,12 @@ def get_available_seats(
     """
     Calculate the number of seats available for a journey
     segment on a particular schedule and date.
-
-    Capacity is reserved by:
-
-    1. Confirmed tickets.
-    2. Active payment reservations that do not yet
-       have a ticket.
-
-    CANCELLED and COMPLETED tickets do not reserve capacity.
-
-    REFUNDED payments do not reserve capacity.
     """
 
-    bus = schedule.route.bus
+    bus = schedule.bus
+
+    if bus is None:
+        return 0
 
     # ---------------------------------------------------------
     # CONFIRMED TICKETS

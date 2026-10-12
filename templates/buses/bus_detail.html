@@ -65,27 +65,23 @@
                         {{ bus.id }}
                     </p>
 
-                    {% if routes %}
+                    {% if route %}
 
                         <hr>
 
                         <h5 class="mb-3">
-                            Routes
+                            Route
                         </h5>
 
                         <div class="list-group">
 
-                            {% for route in routes %}
+                            <div class="list-group-item">
 
-                                <div class="list-group-item">
+                                <strong>
+                                    {{ route }}
+                                </strong>
 
-                                    <strong>
-                                        {{ route }}
-                                    </strong>
-
-                                </div>
-
-                            {% endfor %}
+                            </div>
 
                         </div>
 

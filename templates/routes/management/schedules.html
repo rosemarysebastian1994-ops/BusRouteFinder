@@ -127,15 +127,17 @@
 
                                     <!-- Bus -->
                                     <td>
+                                        {% if schedule.bus %}
+                                            <div class="fw-semibold">
+                                                {{ schedule.bus.bus_number }}
+                                            </div>
 
-                                        <div class="fw-semibold">
-                                            {{ schedule.route.bus.bus_number }}
-                                        </div>
-
-                                        <small class="text-muted">
-                                            {{ schedule.route.bus.bus_name }}
-                                        </small>
-
+                                            <small class="text-muted">
+                                                {{ schedule.bus.bus_name }}
+                                            </small>
+                                        {% else %}
+                                            No bus assigned
+                                        {% endif %}
                                     </td>
 
 

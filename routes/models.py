@@ -1,15 +1,9 @@
 from django.db import models
 
 # Create your models here.
-from django.db import models
 from buses.models import Bus
 
 class Route(models.Model):
-    bus = models.ForeignKey(
-        Bus,
-        on_delete=models.CASCADE,
-        related_name='routes'
-    )
 
     route_name = models.CharField(
         max_length=150
@@ -171,6 +165,14 @@ class BusSchedule(models.Model):
         ('SAT', 'Saturday'),
         ('SUN', 'Sunday'),
     ]
+
+    bus = models.ForeignKey(
+        'buses.Bus',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='schedules'
+    )
 
     route = models.ForeignKey(
         Route,

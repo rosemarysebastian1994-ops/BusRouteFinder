@@ -72,64 +72,88 @@
 
                         <div class="row g-3">
 
-                            <div class="col-md-4">
-
+                            <!-- Source -->
+                            <div class="col-md-3">
                                 <div class="form-group">
-
-                                    <label class="form-label">
-                                        Source
-                                    </label>
-
+                                    <label class="form-label">Source</label>
                                     <input type="text"
                                            name="source"
                                            class="form-control"
-                                           placeholder="Enter source">
-
+                                           placeholder="Enter source"
+                                           required>
                                 </div>
-
                             </div>
 
-                            <div class="col-md-4">
-
+                            <!-- Destination -->
+                            <div class="col-md-3">
                                 <div class="form-group">
-
-                                    <label class="form-label">
-                                        Destination
-                                    </label>
-
+                                    <label class="form-label">Destination</label>
                                     <input type="text"
                                            name="destination"
                                            class="form-control"
-                                           placeholder="Enter destination">
-
+                                           placeholder="Enter destination"
+                                           required>
                                 </div>
-
                             </div>
 
+                            <!-- Travel Date -->
                             <div class="col-md-2">
+                                <div class="form-group">
+                                    <label class="form-label">Travel Date</label>
+                                    <input type="date"
+                                           name="travel_date"
+                                           id="home_travel_date"
+                                           class="form-control">
+                                </div>
+                            </div>
 
+                            <!-- Departure Time -->
+                            <div class="col-md-3">
                                 <div class="form-group">
 
                                     <label class="form-label">
-                                        Travel Date
+                                        Departure Time
                                     </label>
 
-                                    <input type="date"
-                                           name="travel_date"
-                                           class="form-control">
+                                    <div class="input-group">
+
+                                        <select
+                                            name="departure_filter"
+                                            id="home_departure_filter"
+                                            class="form-select">
+
+                                            <option value="any" selected>
+                                                Any Time
+                                            </option>
+
+                                            <option value="after">
+                                                Departure After
+                                            </option>
+
+                                        </select>
+
+                                        <input
+                                            type="time"
+                                            name="departure_time"
+                                            id="home_departure_time"
+                                            class="form-control"
+                                            disabled>
+
+                                    </div>
 
                                 </div>
-
                             </div>
 
-                            <div class="col-md-2 d-flex align-items-end">
+                            <!-- Search Button -->
+                            <div class="col-md-1 d-flex align-items-end">
 
                                 <div class="form-group w-100">
 
                                     <button type="submit"
                                             class="btn btn-primary w-100">
 
-                                        Search Bus
+                                        <i class="bi bi-search me-1"></i>
+                                        Search
 
                                     </button>
 
@@ -150,6 +174,85 @@
     </div>
 
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const travelDate =
+        document.getElementById('home_travel_date');
+
+    const filter =
+        document.getElementById('home_departure_filter');
+
+    const timeInput =
+        document.getElementById('home_departure_time');
+
+
+    // Default travel date to today
+    if (!travelDate.value) {
+
+        const today = new Date();
+
+        const year = today.getFullYear();
+
+        const month = String(
+            today.getMonth() + 1
+        ).padStart(2, '0');
+
+        const day = String(
+            today.getDate()
+        ).padStart(2, '0');
+
+        travelDate.value =
+            `${year}-${month}-${day}`;
+    }
+
+
+    function getCurrentTime() {
+
+        const now = new Date();
+
+        const hours = String(
+            now.getHours()
+        ).padStart(2, '0');
+
+        const minutes = String(
+            now.getMinutes()
+        ).padStart(2, '0');
+
+        return `${hours}:${minutes}`;
+    }
+
+
+    function updateDepartureControls() {
+
+        if (filter.value === 'after') {
+
+            timeInput.disabled = false;
+
+            if (!timeInput.value) {
+                timeInput.value = getCurrentTime();
+            }
+
+        } else {
+
+            timeInput.value = '';
+            timeInput.disabled = true;
+
+        }
+    }
+
+
+    filter.addEventListener(
+        'change',
+        updateDepartureControls
+    );
+
+
+    updateDepartureControls();
+
+});
+</script>
 
 <!-- SERVICES -->
 <section class="ftco-section services-section ftco-no-pt ftco-no-pb">
@@ -176,10 +279,6 @@
 
             <div class="col-md-3">
                 <div class="services text-center">
-
-                    <div class="icon d-flex justify-content-center align-items-center">
-                        <span class="flaticon-route"></span>
-                    </div>
 
                     <div class="text">
                         <h3>Find Bus Routes</h3>
@@ -401,9 +500,6 @@
             <!-- Step 1 -->
             <div class="col-md-3 d-flex align-items-stretch ftco-animate">
                 <div class="services text-center">
-                    <div class="icon d-flex justify-content-center align-items-center">
-                        <span class="flaticon-route"></span>
-                    </div>
                     <div class="text">
                         <h3>Enter Your Location</h3>
                         <p>

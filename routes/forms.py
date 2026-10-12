@@ -7,19 +7,12 @@ class RouteForm(forms.ModelForm):
     class Meta:
         model = Route
         fields = [
-            'bus',
             'route_name',
             'description',
             'duration_minutes',
         ]
 
         widgets = {
-            'bus': forms.Select(
-                attrs={
-                    'class': 'form-select'
-                }
-            ),
-
             'route_name': forms.TextInput(
                 attrs={
                     'class': 'form-control',
@@ -45,7 +38,6 @@ class RouteForm(forms.ModelForm):
         }
 
         labels = {
-            'bus': 'Bus',
             'route_name': 'Route Name',
             'description': 'Description',
             'duration_minutes': 'Estimated Duration (minutes)',

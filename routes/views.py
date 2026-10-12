@@ -267,16 +267,12 @@ def route_search(request):
         .filter(
             route_stops__stop__in=destination_stops
         )
-        .select_related(
-            'bus'
-        )
         .prefetch_related(
             'route_stops__stop',
-            'schedules'
+            'schedules__bus',
         )
         .distinct()
     )
-
 
     # ---------------------------------------------------------
     # DETERMINE SELECTED DAY
@@ -712,7 +708,6 @@ def route_search(request):
 def routes_list(request):
     routes = (
         Route.objects
-        .select_related('bus')
         .prefetch_related(
             'route_stops__stop',
             'schedules'
@@ -740,19 +735,15 @@ def routes_list(request):
     ]
 
     for route in routes:
-
-        # All active schedules for this route
         schedules = [
             schedule
             for schedule in route.schedules.all()
             if schedule.is_active
         ]
 
-        # Group schedules by day
         weekly_schedules = []
 
         for day_code, day_name in day_order:
-
             day_schedules = [
                 schedule
                 for schedule in schedules
@@ -770,6 +761,12 @@ def routes_list(request):
             })
 
         route.weekly_schedules = weekly_schedules
+
+        route.buses = list({
+               schedule.bus.id: schedule.bus
+               for schedule in schedules
+               if schedule.bus is not None
+           }.values())
 
     return render(
         request,
@@ -821,18 +818,25 @@ def stop_detail(request, stop_id):
 
     route_stops = (
         stop.route_stops
-        .select_related(
-            'route',
-            'route__bus',
-        )
+        .select_related('route')
         .prefetch_related(
-            'route__route_stops__stop'
+            'route__route_stops__stop',
+            'route__schedules__bus',
         )
         .order_by(
             'route__route_name',
             'stop_order'
         )
     )
+
+    for route_stop in route_stops:
+        route = route_stop.route
+
+        route.buses = list({
+            schedule.bus_id: schedule.bus
+            for schedule in route.schedules.all()
+            if schedule.bus is not None
+        }.values())
 
     is_favourite = False
 
@@ -855,32 +859,23 @@ def stop_detail(request, stop_id):
 def route_detail(request, route_id):
     route = get_object_or_404(
         Route.objects
-        .select_related('bus')
         .prefetch_related(
             'route_stops__stop',
-            'schedules'
+            'schedules__bus'
         ),
         id=route_id
     )
 
-    # ---------------------------------------------------------
     # FAVOURITE STATUS
-    # ---------------------------------------------------------
-
     is_favourite = False
 
     if request.user.is_authenticated:
-
         is_favourite = FavouriteRoute.objects.filter(
             user=request.user,
             route=route
         ).exists()
 
-
-    # ---------------------------------------------------------
     # ACTIVE SCHEDULES
-    # ---------------------------------------------------------
-
     schedules = [
         schedule
         for schedule in route.schedules.all()
@@ -894,11 +889,7 @@ def route_detail(request, route_id):
         )
     )
 
-
-    # ---------------------------------------------------------
     # WEEKLY SCHEDULE
-    # ---------------------------------------------------------
-
     day_order = [
         ('MON', 'Monday'),
         ('TUE', 'Tuesday'),
@@ -912,7 +903,6 @@ def route_detail(request, route_id):
     weekly_schedules = []
 
     for day_code, day_name in day_order:
-
         day_schedules = [
             schedule
             for schedule in schedules
@@ -929,14 +919,13 @@ def route_detail(request, route_id):
             'schedules': day_schedules,
         })
 
-
-    # Attach weekly schedules to the route object
     route.weekly_schedules = weekly_schedules
 
-
-    # ---------------------------------------------------------
-    # RENDER
-    # ---------------------------------------------------------
+    route.buses = list({
+           schedule.bus_id: schedule.bus
+           for schedule in route.schedules.all()
+           if schedule.bus is not None
+       }.values())
 
     return render(
         request,
@@ -948,21 +937,24 @@ def route_detail(request, route_id):
         }
     )
 
-
 @admin_required
 def route_management(request):
-    routes = Route.objects.select_related(
-        'bus'
-    ).prefetch_related(
-        'route_stops__stop'
+    routes = Route.objects.prefetch_related(
+        'route_stops__stop',
+        'schedules__bus',
     ).order_by('route_name')
+
+    for route in routes:
+        route.buses = list({
+            schedule.bus_id: schedule.bus
+            for schedule in route.schedules.all()
+            if schedule.bus is not None
+        }.values())
 
     return render(
         request,
         'routes/management/list.html',
-        {
-            'routes': routes,
-        }
+        {'routes': routes},
     )
 
 @admin_required
@@ -1061,7 +1053,7 @@ def route_delete(request, route_id):
 def manage_route_stops(request, route_id):
 
     route = get_object_or_404(
-        Route.objects.select_related('bus'),
+        Route.objects.prefetch_related('schedules__bus'),
         id=route_id
     )
 
@@ -1070,6 +1062,12 @@ def manage_route_stops(request, route_id):
     ).order_by(
         'stop_order'
     )
+
+    route.buses = list({
+        schedule.bus_id: schedule.bus
+        for schedule in route.schedules.all()
+        if schedule.bus is not None
+    }.values())
 
     return render(
         request,
@@ -1434,7 +1432,7 @@ def schedule_management(request):
 
     schedules = BusSchedule.objects.select_related(
         'route',
-        'route__bus'
+        'bus'
     ).order_by(
         'day_order',
         'departure_time'
@@ -1527,31 +1525,29 @@ def schedule_edit(request, schedule_id):
         }
     )
 
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect
+from django.db.models import ProtectedError
+
 @admin_required
 def schedule_delete(request, schedule_id):
-
-    schedule = get_object_or_404(
-        BusSchedule,
-        id=schedule_id
-    )
+    schedule = get_object_or_404(BusSchedule, id=schedule_id)
 
     if request.method == 'POST':
+        if schedule.tickets.exists():
+            messages.error(
+                request,
+                'This schedule cannot be deleted because tickets '
+                'are associated with it.'
+            )
+            return redirect('routes:schedule_management')
 
         schedule.delete()
-
-        messages.success(
-            request,
-            'Bus schedule deleted successfully.'
-        )
-
-        return redirect(
-            'routes:schedule_management'
-        )
+        messages.success(request, 'Schedule deleted successfully.')
+        return redirect('routes:schedule_management')
 
     return render(
         request,
         'routes/management/schedule_delete.html',
-        {
-            'schedule': schedule,
-        }
+        {'schedule': schedule},
     )

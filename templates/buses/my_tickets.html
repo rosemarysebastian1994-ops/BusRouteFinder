@@ -53,13 +53,14 @@
 
                                             <p class="mb-2">
 
-                                                <strong>
-                                                    Bus:
-                                                </strong>
+                                                <strong>Bus:</strong>
 
-                                                {{ payment.schedule.route.bus.bus_name }}
-
-                                                ({{ payment.schedule.route.bus.bus_number }})
+                                                {% if payment.schedule.bus %}
+                                                    {{ payment.schedule.bus.bus_name }}
+                                                    ({{ payment.schedule.bus.bus_number }})
+                                                {% else %}
+                                                    Bus not assigned
+                                                {% endif %}
 
                                             </p>
 
@@ -205,13 +206,14 @@
 
                                         <p class="mb-2">
 
-                                            <strong>
-                                                Bus:
-                                            </strong>
+                                            <strong>Bus:</strong>
 
-                                            {{ ticket.schedule.route.bus.bus_name }}
-
-                                            ({{ ticket.schedule.route.bus.bus_number }})
+                                            {% if ticket.schedule.bus %}
+                                                {{ ticket.schedule.bus.bus_name }}
+                                                ({{ ticket.schedule.bus.bus_number }})
+                                            {% else %}
+                                                Bus not assigned
+                                            {% endif %}
 
                                         </p>
 

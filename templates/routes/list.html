@@ -40,20 +40,25 @@
 
                             <hr>
 
-                            <p class="mb-2">
-                                <strong>Bus:</strong>
-                                {{ route.bus.bus_number }}
-                            </p>
 
-                            <p class="mb-2">
-                                <strong>Bus Name:</strong>
-                                {{ route.bus.bus_name }}
-                            </p>
+                            {% for bus in route.buses %}
+                                <p class="mb-2">
+                                    <strong>Bus:</strong>
+                                    {{ bus.bus_number }}
+                                </p>
 
-                            <p class="mb-3">
-                                <strong>Type:</strong>
-                                {{ route.bus.get_bus_type_display }}
-                            </p>
+                                <p class="mb-2">
+                                    <strong>Bus Name:</strong>
+                                    {{ bus.bus_name }}
+                                </p>
+
+                                <p class="mb-3">
+                                    <strong>Type:</strong>
+                                    {{ bus.get_bus_type_display }}
+                                </p>
+                            {% empty %}
+                                <p class="mb-3">No buses assigned to this route.</p>
+                            {% endfor %}
 
 
                             <!-- Stops -->

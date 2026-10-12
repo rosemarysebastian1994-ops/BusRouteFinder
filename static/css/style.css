@@ -9861,3 +9861,7 @@ textarea.form-control {
   100% {
     stroke-dasharray: 89, 200;
     stroke-dashoffset: -136px; } }
+
+.card { transition: all 0.2s ease; }
+.card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.08) !important; }
+.rounded-4 { border-radius: 16px !important; }

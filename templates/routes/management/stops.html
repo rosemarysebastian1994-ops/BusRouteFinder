@@ -52,13 +52,13 @@
                     </h5>
 
                     <div class="text-muted">
-
                         <i class="bi bi-bus-front me-1"></i>
 
-                        {{ route.bus.bus_number }}
-                        -
-                        {{ route.bus.bus_name }}
-
+                        {% for bus in route.buses %}
+                            {{ bus.bus_number }} - {{ bus.bus_name }}{% if not forloop.last %}, {% endif %}
+                        {% empty %}
+                            No bus assigned
+                        {% endfor %}
                     </div>
 
                 </div>

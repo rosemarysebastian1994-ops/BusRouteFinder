@@ -1,222 +1,417 @@
 {% extends 'base.html' %}
-{% load static %}
-
 {% block content %}
+<div class="container py-4">
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm rounded-4 p-4">
+        <h5 class="fw-bold mb-3">Journey Details</h5>
+        <form id="bookingForm" method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">{{ form.schedule.label }}</label>
+            {{ form.schedule }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Boarding Point (From)</label>
+            {{ form.source_stop }}
+            <small id="fareInfo" class="text-muted"></small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Dropping Point (To)</label>
+            {{ form.destination_stop }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">{{ form.journey_date.label }}</label>
+            {{ form.journey_date }}
+          </div>
+          <input type="hidden" name="selected_seats" id="selectedSeatsInput">
+          <input type="hidden" name="passenger_count" id="passengerCountInput" value="1">
+          <div id="seatSummary" class="alert alert-light border rounded-3 d-none mt-3">
+            Seats: <strong id="selectedSeatsText">-</strong><br>
+            Total: ₹<span id="totalFare">0</span>
+          </div>
+          <button type="submit" id="bookBtn" class="btn btn-warning w-100 mt-3" disabled>Select seats</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm rounded-4 p-4">
+        <div class="d-flex justify-content-between small mb-2">
+          <span>⬜ Available</span><span style="color:#198754;">🟩 Selected</span><span>⬛ Booked</span>
+        </div>
+        <div class="d-flex justify-content-between"><small class="text-muted">Front</small><div>🛞 Driver</div></div>
+        <div id="seatsWrapper" style="border:2px dashed #eee; border-radius:12px; padding:15px; min-height:350px; display:flex; flex-wrap:wrap; gap:8px; max-width:380px;">
+          <p class="text-muted small m-auto">Select boarding & dropping to load seats</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.seat{width:44px;height:44px;border-radius:8px;border:2px solid #dee2e6;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#fff;font-weight:700;transition:.2s}
+.seat:hover{border-color:#ff9800;transform:scale(1.05)}
+.seat.booked{background:#6c757d!important;color:#fff!important;border-color:#6c757d!important;cursor:not-allowed!important;opacity:0.7}
+.seat.selected{background:#198754!important;color:#fff!important;border-color:#198754!important}
+.aisle{width:20px}
+</style>
+
 
 <script>
-    const bookingStopsUrl =
-        "{% url 'buses:booking_schedule_stops' %}";
+let allStops = [];
+let selectedSeats = [];
+let farePerSeat = 65; // Temporary until connected to the fare API
+let seatRequestNumber = 0;
+let stopsRequestNumber = 0;
 
-    const bookingFareUrl =
-        "{% url 'buses:calculate_booking_fare' %}";
+const scheduleField = document.getElementById("id_schedule");
+const sourceField = document.getElementById("id_source_stop");
+const destinationField = document.getElementById("id_destination_stop");
+const dateField = document.getElementById("id_journey_date");
+const seatsWrapper = document.getElementById("seatsWrapper");
+const bookBtn = document.getElementById("bookBtn");
 
-    const bookingAvailabilityUrl =
-        "{% url 'buses:check_seat_availability' %}";
+function resetSelection() {
+    selectedSeats = [];
+
+    document.getElementById("selectedSeatsInput").value = "[]";
+    document.getElementById("passengerCountInput").value = "0";
+    document.getElementById("selectedSeatsText").textContent = "-";
+    document.getElementById("totalFare").textContent = "0";
+    document.getElementById("seatSummary").classList.add("d-none");
+
+    bookBtn.disabled = true;
+    bookBtn.textContent = "Select seats";
+}
+
+function clearSeats(message) {
+    resetSelection();
+    seatsWrapper.replaceChildren();
+
+    const text = document.createElement("p");
+    text.className = "text-muted small m-auto";
+    text.textContent = message;
+    seatsWrapper.appendChild(text);
+}
+
+function updateSelectionSummary() {
+    document.getElementById("selectedSeatsInput").value =
+        JSON.stringify(selectedSeats);
+
+    document.getElementById("passengerCountInput").value =
+        selectedSeats.length;
+
+    document.getElementById("selectedSeatsText").textContent =
+        selectedSeats.join(", ") || "-";
+
+    document.getElementById("totalFare").textContent =
+        selectedSeats.length * farePerSeat;
+
+    document.getElementById("seatSummary").classList.toggle(
+        "d-none",
+        selectedSeats.length === 0
+    );
+
+    bookBtn.disabled = selectedSeats.length === 0;
+
+    bookBtn.textContent = selectedSeats.length
+        ? `Pay ₹${selectedSeats.length * farePerSeat} for ${selectedSeats.length} seat(s)`
+        : "Select seats";
+}
+
+function toggleSeat(number, element) {
+    if (selectedSeats.includes(number)) {
+        selectedSeats = selectedSeats.filter(
+            seat => seat !== number
+        );
+        element.classList.remove("selected");
+    } else {
+        if (selectedSeats.length >= 6) {
+            alert("You can select a maximum of 6 seats.");
+            return;
+        }
+
+        selectedSeats.push(number);
+        selectedSeats.sort((a, b) => a - b);
+        element.classList.add("selected");
+    }
+
+    updateSelectionSummary();
+}
+
+function renderSeats(booked, capacity) {
+    seatsWrapper.replaceChildren();
+    resetSelection();
+
+    const bookedSet = new Set((booked || []).map(Number));
+
+    for (let number = 1; number <= Number(capacity); number++) {
+        if (number % 5 === 3) {
+            const aisle = document.createElement("div");
+            aisle.className = "aisle";
+            seatsWrapper.appendChild(aisle);
+        }
+
+        const seat = document.createElement("button");
+        seat.type = "button";
+        seat.className = "seat";
+        seat.textContent = number;
+        seat.setAttribute("aria-label", `Seat ${number}`);
+
+        if (bookedSet.has(number)) {
+            seat.classList.add("booked");
+            seat.disabled = true;
+            seat.title = "Already booked";
+        } else {
+            seat.addEventListener("click", () => {
+                toggleSeat(number, seat);
+            });
+        }
+
+        seatsWrapper.appendChild(seat);
+
+        if (number % 5 === 0) {
+            const breakRow = document.createElement("div");
+            breakRow.style.width = "100%";
+            breakRow.style.height = "6px";
+            seatsWrapper.appendChild(breakRow);
+        }
+    }
+}
+
+async function loadScheduleStops() {
+    const requestNumber = ++stopsRequestNumber;
+    const scheduleId = scheduleField.value;
+
+    allStops = [];
+    sourceField.replaceChildren();
+    destinationField.replaceChildren();
+
+    clearSeats("Select boarding and dropping points to load seats.");
+
+    if (!scheduleId) {
+        sourceField.add(new Option("- Select boarding -", ""));
+        destinationField.add(new Option("- Select dropping -", ""));
+        return;
+    }
+
+    sourceField.add(new Option("Loading stops...", ""));
+    destinationField.add(new Option("- Select boarding first -", ""));
+
+    try {
+        const response = await fetch(
+            `/buses/book/schedule-stops/?schedule_id=${encodeURIComponent(scheduleId)}`
+        );
+
+        if (!response.ok) {
+            throw new Error(`Stops request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (requestNumber !== stopsRequestNumber) return;
+
+        allStops = data.stops || [];
+
+        sourceField.replaceChildren();
+        sourceField.add(new Option("- Select boarding -", ""));
+
+        allStops.forEach(stop => {
+            const id = stop.route_stop_id ?? stop.id;
+            const order = stop.order ?? stop.stop_order;
+
+            if (id == null || order == null) return;
+
+            sourceField.add(
+                new Option(`${order}. ${stop.stop_name || stop.name}`, id)
+            );
+
+            sourceField.options[sourceField.options.length - 1]
+                .dataset.order = order;
+        });
+    } catch (error) {
+        if (requestNumber !== stopsRequestNumber) return;
+
+        console.error("Unable to load schedule stops:", error);
+        clearSeats("Could not load stops. Please try again.");
+        sourceField.replaceChildren();
+        sourceField.add(new Option("- Unable to load stops -", ""));
+    }
+}
+
+function updateDroppingPoints() {
+    const sourceOption =
+        sourceField.options[sourceField.selectedIndex];
+
+    const sourceOrder = Number(sourceOption?.dataset.order);
+
+    destinationField.replaceChildren();
+    destinationField.add(new Option("- Select dropping -", ""));
+
+    if (!sourceField.value || !Number.isFinite(sourceOrder)) {
+        clearSeats("Select a boarding point first.");
+        return;
+    }
+
+    allStops.forEach(stop => {
+        const order = Number(stop.order ?? stop.stop_order);
+        const id = stop.route_stop_id ?? stop.id;
+
+        if (id == null || !Number.isFinite(order) || order <= sourceOrder) {
+            return;
+        }
+
+        destinationField.add(
+            new Option(
+                `${order}. ${stop.stop_name || stop.name}`,
+                id
+            )
+        );
+
+        destinationField.options[destinationField.options.length - 1]
+            .dataset.order = order;
+    });
+
+    clearSeats("Select a dropping point to load seats.");
+}
+
+async function loadSeats() {
+    const requestNumber = ++seatRequestNumber;
+
+    const scheduleId = scheduleField.value;
+    const sourceId = sourceField.value;
+    const destinationId = destinationField.value;
+    const journeyDate = dateField.value;
+
+    resetSelection();
+
+    if (!scheduleId || !sourceId || !destinationId || !journeyDate) {
+        clearSeats("Select the schedule, date, boarding and dropping points.");
+        return;
+    }
+
+    clearSeats("Checking seat availability...");
+
+    const params = new URLSearchParams({
+        schedule_id: scheduleId,
+        journey_date: journeyDate,
+        source_stop_id: sourceId,
+        destination_stop_id: destinationId
+    });
+
+    try {
+        const response = await fetch(
+            `/buses/booked-seats/?${params.toString()}`
+        );
+
+        if (!response.ok) {
+            throw new Error(`Seat request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (requestNumber !== seatRequestNumber) return;
+
+        if (!Array.isArray(data.booked) || !Number.isFinite(Number(data.capacity))) {
+            throw new Error("Invalid seat availability response.");
+        }
+
+        renderSeats(data.booked, data.capacity);
+    } catch (error) {
+        if (requestNumber !== seatRequestNumber) return;
+
+        console.error("Unable to load seats:", error);
+        clearSeats("Could not load seats. Please change your selection or retry.");
+    }
+}
+
+async function loadFare() {
+    const scheduleId =
+        document.getElementById('id_schedule').value;
+
+    const sourceId =
+        document.getElementById('id_source_stop').value;
+
+    const destinationId =
+        document.getElementById('id_destination_stop').value;
+
+    const fareInfo =
+        document.getElementById('fareInfo');
+
+    // Wait until all three selections are valid.
+    if (!scheduleId || !sourceId || !destinationId) {
+        fareInfo.textContent = '';
+        return;
+    }
+
+    fareInfo.textContent = 'Calculating fare...';
+
+    const params = new URLSearchParams({
+        schedule_id: scheduleId,
+        source_stop_id: sourceId,
+        destination_stop_id: destinationId
+    });
+
+    try {
+        const response = await fetch(
+            `/buses/calculate-booking-fare/?${params.toString()}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.message || 'Unable to calculate fare.'
+            );
+        }
+
+        // Replace the temporary ₹65 with the actual fare.
+        farePerSeat = Number(data.fare);
+
+        if (!Number.isFinite(farePerSeat) || farePerSeat < 0) {
+            throw new Error('Invalid fare received from the server.');
+        }
+
+        fareInfo.textContent =
+            `Fare per passenger: ₹${farePerSeat.toFixed(2)}`;
+
+        // Update the total if seats are already selected.
+        updateSelectionSummary();
+
+    } catch (error) {
+        console.error('Fare calculation failed:', error);
+
+        fareInfo.textContent = error.message;
+    }
+}
+
+scheduleField.addEventListener("change", async () => {
+    await loadScheduleStops();
+});
+
+
+sourceField.addEventListener("change", () => {
+    updateDroppingPoints();
+    loadFare();
+});
+
+destinationField.addEventListener("change", () => {
+    loadFare();
+    loadSeats();
+});
+
+dateField.addEventListener("change", loadSeats);
+
+if (dateField && !dateField.value) {
+    const now = new Date();
+    const localDate = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        String(now.getDate()).padStart(2, "0")
+    ].join("-");
+
+    dateField.value = localDate;
+}
 </script>
-
-<script src="{% static 'buses/js/book_ticket.js' %}"></script>
-
-<section class="ftco-section">
-    <div class="container">
-
-        <div class="row justify-content-center">
-
-            <div class="col-md-8">
-
-                <div class="heading-section text-center mb-5">
-
-                    <h2 class="mb-3">
-                        Book Bus Ticket
-                    </h2>
-
-                    <p>
-                        Select your journey details and book your ticket.
-                    </p>
-
-                </div>
-
-
-                <div class="card">
-
-                    <div class="card-body p-4">
-
-                        <form method="post">
-
-                            {% csrf_token %}
-
-
-                            {% if form.non_field_errors %}
-
-                                <div class="alert alert-danger">
-
-                                    {{ form.non_field_errors }}
-
-                                </div>
-
-                            {% endif %}
-
-
-                            <div class="form-group">
-
-                                <label for="id_schedule">
-                                    Bus Schedule
-                                </label>
-
-                                {{ form.schedule }}
-
-                                {% if form.schedule.errors %}
-
-                                    <div class="text-danger">
-                                        {{ form.schedule.errors }}
-                                    </div>
-
-                                {% endif %}
-
-                            </div>
-
-
-                            <div class="form-group">
-
-                                <label for="id_journey_date">
-                                    Journey Date
-                                </label>
-
-                                {{ form.journey_date }}
-
-                                {% if form.journey_date.errors %}
-
-                                    <div class="text-danger">
-                                        {{ form.journey_date.errors }}
-                                    </div>
-
-                                {% endif %}
-
-                            </div>
-
-
-                            <div class="form-group">
-
-                                <label for="id_source_stop">
-                                    From
-                                </label>
-
-                                {{ form.source_stop }}
-
-                                {% if form.source_stop.errors %}
-
-                                    <div class="text-danger">
-                                        {{ form.source_stop.errors }}
-                                    </div>
-
-                                {% endif %}
-
-                            </div>
-
-
-                            <div class="form-group">
-
-                                <label for="id_destination_stop">
-                                    To
-                                </label>
-
-                                {{ form.destination_stop }}
-
-                                {% if form.destination_stop.errors %}
-
-                                    <div class="text-danger">
-                                        {{ form.destination_stop.errors }}
-                                    </div>
-
-                                {% endif %}
-
-                            </div>
-
-
-                            <div class="form-group">
-
-                                <label for="id_passenger_count">
-                                    Number of Passengers
-                                </label>
-
-                                {{ form.passenger_count }}
-
-                                {% if form.passenger_count.errors %}
-
-                                    <div class="text-danger">
-                                        {{ form.passenger_count.errors }}
-                                    </div>
-
-                                {% endif %}
-
-                            </div>
-
-                            <div
-                                id="availability-section"
-                                class="alert alert-info"
-                                style="display: none;"
-                            >
-
-                                <strong>
-                                    Available Seats:
-                                </strong>
-
-                                <span id="available-seats">
-                                    0
-                                </span>
-
-                            </div>
-
-                            <div
-                                id="fare-section"
-                                class="alert alert-info"
-                                style="display: none;"
-                            >
-
-                                <strong>
-                                    Fare per passenger:
-                                </strong>
-
-                                ₹<span id="fare-per-passenger">
-                                    0.00
-                                </span>
-
-                                <br>
-
-                                <strong>
-                                    Total Fare:
-                                </strong>
-
-                                ₹<span id="total-fare">
-                                    0.00
-                                </span>
-
-                            </div>
-
-
-                            <button
-                                type="submit"
-                                class="btn btn-primary btn-block"
-                            >
-
-                                <i class="bi bi-ticket-perforated"></i>
-
-                                Book Ticket
-
-                            </button>
-
-
-                        </form>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-</section>
-
 {% endblock %}
-

@@ -2,9 +2,20 @@ console.log(
     'BOOK TICKET JAVASCRIPT LOADED'
 );
 
-document.addEventListener(
-    'DOMContentLoaded',
-    function () {
+function initializeBookingForm() {
+    console.log('BOOKING FORM INITIALIZATION STARTED');
+
+        console.log('DOM CONTENT LOADED');
+
+        const bookingForm =
+            document.querySelector('form');
+
+        if (bookingForm) {
+            bookingForm.addEventListener('submit', function (e) {
+                console.log('BOOKING FORM SUBMIT EVENT FIRED');
+                // e.preventDefault(); // <-- Add this if you want to debug, but for Django form POST you actually WANT submit
+            });
+        }
 
         const scheduleField =
             document.getElementById(
@@ -55,6 +66,14 @@ document.addEventListener(
             document.getElementById(
                 'total-fare'
             );
+
+        console.log('Schedule field:', scheduleField);
+        console.log('Source field:', sourceField);
+        console.log('Destination field:', destinationField);
+        console.log(
+            'Passenger count field:',
+            passengerCountField
+        );
 
 
         if (
@@ -784,6 +803,13 @@ document.addEventListener(
             'input',
             updateTotalFare
         );
+}
 
-    }
-);
+if (document.readyState === 'loading') {
+    document.addEventListener(
+        'DOMContentLoaded',
+        initializeBookingForm
+    );
+} else {
+    initializeBookingForm();
+}
