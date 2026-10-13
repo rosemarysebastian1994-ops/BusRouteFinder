@@ -2852,19 +2852,10 @@ def get_booked_seats(request):
 
 
     try:
-        print("DEBUG: Starting booked-seats view", flush=True)
-
         schedule = get_object_or_404(
             BusSchedule.objects.select_related("route", "bus"),
             id=schedule_id,
             is_active=True,
-        )
-
-        print(
-            f"DEBUG: Schedule loaded: {schedule.id}, "
-            f"route_id={schedule.route_id}, "
-            f"bus_id={schedule.bus_id}",
-            flush=True,
         )
 
         source_stop = get_object_or_404(
@@ -2876,13 +2867,6 @@ def get_booked_seats(request):
             RouteStop,
             id=destination_id,
         )
-
-        print(
-            f"DEBUG: Stops loaded: source={source_stop.id}, "
-            f"destination={destination_stop.id}",
-            flush=True,
-        )
-
 
     except Exception as exc:
 

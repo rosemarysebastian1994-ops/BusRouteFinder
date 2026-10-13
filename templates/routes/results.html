@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load duration_filters %}
 
 {% block content %}
 
@@ -1335,13 +1336,11 @@
                             </p>
 
                             <p>
-                                Layover:
-                                {{ journey.layover_minutes }} minutes
+                                Layover: {{ journey.layover_minutes|minutes_to_hours }}
                             </p>
 
                             <p>
-                                Total journey:
-                                {{ journey.total_minutes }} minutes
+                                Total journey: {{ journey.total_minutes|minutes_to_hours }}
                             </p>
                         </div>
                     </div>
