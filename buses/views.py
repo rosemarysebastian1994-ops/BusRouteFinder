@@ -2849,14 +2849,33 @@ def get_booked_seats(request):
             status=400,
         )
 
-    schedule = get_object_or_404(
-        BusSchedule.objects.select_related("route", "bus"),
-        id=schedule_id,
-        is_active=True,
-    )
 
-    source_stop = get_object_or_404(RouteStop, id=source_id)
-    destination_stop = get_object_or_404(RouteStop, id=destination_id)
+    try:
+        schedule = get_object_or_404(
+            BusSchedule.objects.select_related("route", "bus"),
+            id=schedule_id,
+            is_active=True,
+        )
+
+        source_stop = get_object_or_404(
+            RouteStop,
+            id=source_id,
+        )
+
+        destination_stop = get_object_or_404(
+            RouteStop,
+            id=destination_id,
+        )
+
+    except Exception:
+        logger.exception(
+            "Error loading schedule or stops: "
+            "schedule_id=%s, source_id=%s, destination_id=%s",
+            schedule_id,
+            source_id,
+            destination_id,
+        )
+        raise
 
     if (
         source_stop.route_id != schedule.route_id
