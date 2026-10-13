@@ -301,15 +301,24 @@ async function loadSeats() {
     });
 
     try {
+
+
         const response = await fetch(
             `/buses/booked-seats/?${params.toString()}`
         );
 
+        const responseText = await response.text();
+
+        console.log("Seat availability HTTP status:", response.status);
+        console.log("Seat availability response:", responseText);
+
         if (!response.ok) {
-            throw new Error(`Seat request failed: ${response.status}`);
+            throw new Error(
+                `Seat request failed: ${response.status} - ${responseText}`
+            );
         }
 
-        const data = await response.json();
+        const data = JSON.parse(responseText);
 
         if (requestNumber !== seatRequestNumber) return;
 

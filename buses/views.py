@@ -2814,7 +2814,6 @@ def book_ticket(request):
 
     return render(request, 'buses/book_ticket.html', {'form': form})
 
-# --- ALSO REPLACE get_booked_seats WITH THIS ---
 from django.utils.dateparse import parse_date
 import logging
 logger = logging.getLogger(__name__)
