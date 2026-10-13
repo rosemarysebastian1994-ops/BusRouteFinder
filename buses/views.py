@@ -2925,6 +2925,17 @@ def get_booked_seats(request):
             status=400,
         )
 
+    if schedule.bus is None:
+        return JsonResponse(
+            {
+                "error": (
+                    "No bus is assigned to this schedule. "
+                    "Please contact the administrator."
+                )
+            },
+            status=400,
+        )
+
     capacity = schedule.bus.capacity
 
     try:

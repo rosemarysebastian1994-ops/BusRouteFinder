@@ -7,6 +7,7 @@ from django.db import transaction
 from django.contrib.auth.decorators import user_passes_test
 from accounts.models import FavouriteRoute, FavouriteStop
 from django.db.models import Prefetch
+from .utils import find_routes_with_transfer
 
 
 def admin_required(view_func):
@@ -279,6 +280,7 @@ def route_search(request):
     # ---------------------------------------------------------
 
     day_code = None
+    selected_date = None
 
     try:
 
@@ -671,6 +673,20 @@ def route_search(request):
             route
         )
 
+    # ---------------------------------------------------------
+    # FIND JOURNEYS WITH ONE TRANSFER
+    # ---------------------------------------------------------
+
+    transfer_journeys = []
+
+    if selected_date is not None:
+        transfer_journeys = find_routes_with_transfer(
+            source_stops=source_stops,
+            destination_stops=destination_stops,
+            travel_date=selected_date,
+            selected_departure_time=selected_departure_time,
+            min_layover_minutes=30,
+        )
 
     # ---------------------------------------------------------
     # CONTEXT
@@ -691,6 +707,8 @@ def route_search(request):
         'routes': routes,
 
         'stops': stops,
+
+        'transfer_journeys': transfer_journeys,
 
     }
 

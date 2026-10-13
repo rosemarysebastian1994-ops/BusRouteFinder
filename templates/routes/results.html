@@ -1279,6 +1279,76 @@
 
         {% endif %}
 
+
+        {% if transfer_journeys %}
+            <section class="mt-4">
+                <h3>Journeys with One Transfer</h3>
+                <p>
+                    These journeys require changing buses.
+                    Each connection includes at least a 30-minute layover.
+                </p>
+
+                {% for journey in transfer_journeys %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h5>
+                                {{ journey.source_stop.name }}
+                                &rarr;
+                                {{ journey.destination_stop.name }}
+                            </h5>
+
+                            <p>
+                                <strong>First bus:</strong>
+                                {{ journey.first_schedule.bus.bus_number }}
+                                ({{ journey.first_route.route_name }})
+                            </p>
+
+                            <p>
+                                Depart:
+                                {{ journey.first_departure|date:"D, d M H:i" }}
+                            </p>
+
+                            <p>
+                                <strong>Transfer at:</strong>
+                                {{ journey.transfer_stop.name }}
+                            </p>
+
+                            <p>
+                                Arrive:
+                                {{ journey.transfer_arrival|date:"D, d M H:i" }}
+                            </p>
+
+                            <p>
+                                <strong>Second bus:</strong>
+                                {{ journey.second_schedule.bus.bus_number }}
+                                ({{ journey.second_route.route_name }})
+                            </p>
+
+                            <p>
+                                Depart:
+                                {{ journey.second_departure|date:"D, d M H:i" }}
+                            </p>
+
+                            <p>
+                                Arrive at destination:
+                                {{ journey.destination_arrival|date:"D, d M H:i" }}
+                            </p>
+
+                            <p>
+                                Layover:
+                                {{ journey.layover_minutes }} minutes
+                            </p>
+
+                            <p>
+                                Total journey:
+                                {{ journey.total_minutes }} minutes
+                            </p>
+                        </div>
+                    </div>
+                {% endfor %}
+            </section>
+        {% endif %}
+
     </div>
 
 </section>
