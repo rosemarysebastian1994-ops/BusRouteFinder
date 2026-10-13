@@ -23,6 +23,7 @@ from django.contrib.auth.models import Group
 from django.contrib import messages
 from django.conf import settings
 from django.db import transaction
+import traceback
 
 from .forms import TicketBookingForm
 
@@ -2851,10 +2852,19 @@ def get_booked_seats(request):
 
 
     try:
+        print("DEBUG: Starting booked-seats view", flush=True)
+
         schedule = get_object_or_404(
             BusSchedule.objects.select_related("route", "bus"),
             id=schedule_id,
             is_active=True,
+        )
+
+        print(
+            f"DEBUG: Schedule loaded: {schedule.id}, "
+            f"route_id={schedule.route_id}, "
+            f"bus_id={schedule.bus_id}",
+            flush=True,
         )
 
         source_stop = get_object_or_404(
@@ -2867,15 +2877,38 @@ def get_booked_seats(request):
             id=destination_id,
         )
 
-    except Exception:
-        logger.exception(
-            "Error loading schedule or stops: "
-            "schedule_id=%s, source_id=%s, destination_id=%s",
-            schedule_id,
-            source_id,
-            destination_id,
+        print(
+            f"DEBUG: Stops loaded: source={source_stop.id}, "
+            f"destination={destination_stop.id}",
+            flush=True,
         )
-        raise
+
+
+    except Exception as exc:
+
+        print(
+
+            f"DEBUG: Booked-seats exception: "
+
+            f"{type(exc).__name__}: {exc}",
+
+            flush=True,
+
+        )
+
+        traceback.print_exc()
+
+        return JsonResponse(
+
+            {
+
+                "error": "Could not retrieve seat availability. Please retry."
+
+            },
+
+            status=500,
+
+        )
 
     if (
         source_stop.route_id != schedule.route_id
