@@ -38,7 +38,6 @@ def calculate_route_fare(
         destination_route_stop.distance_from_start_km
         - source_route_stop.distance_from_start_km
     )
-
     if distance <= 0:
         raise ValidationError(
             'Travel distance must be greater than zero.'
@@ -405,6 +404,31 @@ def find_routes_with_transfer(
                                         + timedelta(minutes=second_duration)
                                     )
 
+                                    # Calculate fare for the first leg.
+                                    try:
+                                        first_fare = calculate_route_fare(
+                                            first_source,
+                                            first_transfer,
+                                        )
+                                    except ValidationError:
+                                        first_fare = None
+
+                                    # Calculate fare for the second leg.
+                                    try:
+                                        second_fare = calculate_route_fare(
+                                            second_transfer,
+                                            second_destination,
+                                        )
+                                    except ValidationError:
+                                        second_fare = None
+
+                                    # Calculate the combined fare only when both
+                                    # individual fares are available.
+                                    if first_fare is not None and second_fare is not None:
+                                        total_fare = first_fare + second_fare
+                                    else:
+                                        total_fare = None
+
                                     key = (
                                         first_schedule.pk,
                                         first_source.pk,
@@ -425,6 +449,9 @@ def find_routes_with_transfer(
                                         "second_schedule": second_schedule,
                                         "first_route": first_route,
                                         "second_route": second_route,
+                                        "first_fare": first_fare,
+                                        "second_fare": second_fare,
+                                        "total_fare": total_fare,
                                         "source_stop": first_source.stop,
                                         "transfer_stop": first_transfer.stop,
                                         "destination_stop": second_destination.stop,

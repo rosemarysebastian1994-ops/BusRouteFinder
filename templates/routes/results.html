@@ -1357,6 +1357,38 @@
                             <p>
                                 Total journey: {{ journey.total_minutes|minutes_to_hours }}
                             </p>
+
+                            <hr>
+
+                            <h6>Fare Breakdown</h6>
+
+                            <p>
+                                First bus fare:
+                                {% if journey.first_fare is not None %}
+                                    ₹{{ journey.first_fare|floatformat:2 }}
+                                {% else %}
+                                    Not available
+                                {% endif %}
+                            </p>
+
+                            <p>
+                                Second bus fare:
+                                {% if journey.second_fare is not None %}
+                                    ₹{{ journey.second_fare|floatformat:2 }}
+                                {% else %}
+                                    Not available
+                                {% endif %}
+                            </p>
+
+                            <p>
+                                <strong>Total estimated fare:</strong>
+                                {% if journey.total_fare is not None %}
+                                    <strong>₹{{ journey.total_fare|floatformat:2 }}</strong>
+                                {% else %}
+                                    Fare unavailable
+                                {% endif %}
+                            </p>
+
                         </div>
                     </div>
                 {% endfor %}
