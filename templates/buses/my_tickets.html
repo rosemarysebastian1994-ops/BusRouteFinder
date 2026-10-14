@@ -152,16 +152,42 @@
                                             <br>
 
 
-                                            <a
-                                                href="{% url 'buses:payment_page' payment.id %}"
-                                                class="btn btn-primary"
-                                            >
 
-                                                <i class="bi bi-credit-card"></i>
+                                            {% if payment.status == 'CREATED' or payment.status == 'FAILED' %}
 
-                                                Complete Payment
+                                                {% if payment.journey_ended %}
 
-                                            </a>
+                                                    <div class="alert alert-warning mt-2">
+                                                        <strong>Journey Ended</strong>
+                                                        <p class="mb-0">
+                                                            You missed the journey. Payment is no longer
+                                                            available for this booking.
+                                                        </p>
+                                                    </div>
+
+                                                {% else %}
+
+                                                    {% if payment.status == 'CREATED' %}
+                                                        <span class="badge badge-warning p-2 mb-3">
+                                                            Payment Pending
+                                                        </span>
+                                                    {% elif payment.status == 'FAILED' %}
+                                                        <span class="badge badge-danger p-2 mb-3">
+                                                            Payment Failed
+                                                        </span>
+                                                    {% endif %}
+
+                                                    <br>
+
+
+                                                    <a href="{% url 'buses:complete_payment' ticket.id %}"
+                                                       class="btn btn-primary">
+                                                        Complete Payment
+                                                    </a>
+
+                                                {% endif %}
+
+                                            {% endif %}
 
                                         </div>
 

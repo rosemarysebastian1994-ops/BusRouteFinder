@@ -346,6 +346,7 @@ class Payment(models.Model):
         ('CREATED', 'Created'),
         ('PAID', 'Paid'),
         ('FAILED', 'Failed'),
+        ('REFUND_PENDING', 'Refund Pending'),
         ('REFUNDED', 'Refunded'),
     ]
 

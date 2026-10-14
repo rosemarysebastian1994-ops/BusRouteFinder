@@ -1,9 +1,157 @@
-from datetime import datetime
-
 from django.utils import timezone
 from .models import Payment, Ticket, Notification
 from django.db.models import Q
 
+from datetime import datetime, timedelta
+
+
+def get_ticket_journey_end(ticket):
+    """
+    Calculate the scheduled arrival time at the ticket's
+    destination.
+
+    RouteStop.travel_time_minutes represents travel time
+    from the previous stop to the current stop.
+    Returns an aware datetime, or None if unavailable.
+    """
+    schedule = ticket.schedule
+    source = ticket.source_stop
+    destination = ticket.destination_stop
+
+    if not all([schedule, source, destination]):
+        return None
+
+    if not schedule.departure_time or not ticket.journey_date:
+        return None
+
+    # Ensure the stops and schedule belong to the same route.
+    if (
+        source.route_id != destination.route_id
+        or source.route_id != schedule.route_id
+        or source.stop_order >= destination.stop_order
+    ):
+        return None
+
+    # Get the route segments up to and including the destination.
+    route_stops = (
+        source.route.route_stops
+        .filter(stop_order__gt=source.stop_order,
+                stop_order__lte=destination.stop_order)
+        .order_by('stop_order')
+    )
+
+    elapsed_minutes = 0
+    expected_order = source.stop_order + 1
+    destination_found = False
+
+    for route_stop in route_stops:
+        # Missing stops or gaps make the arrival time unreliable.
+        if route_stop.stop_order != expected_order:
+            return None
+
+        if route_stop.travel_time_minutes is None:
+            return None
+
+        elapsed_minutes += route_stop.travel_time_minutes
+        expected_order += 1
+
+        if route_stop.pk == destination.pk:
+            destination_found = True
+            break
+
+    if not destination_found:
+        return None
+
+    # The schedule departure time is assumed to be the time
+    # the bus leaves the route's first stop.
+    departure = timezone.make_aware(
+        datetime.combine(
+            ticket.journey_date,
+            schedule.departure_time,
+        ),
+        timezone.get_current_timezone(),
+    )
+
+    return departure + timedelta(minutes=elapsed_minutes)
+
+def get_payment_journey_end(payment):
+    """
+    Calculate the expected arrival time at the destination
+    for a pending payment.
+
+    Returns:
+        datetime: Expected destination arrival time.
+        None: If the required journey information is invalid
+              or incomplete.
+    """
+
+    schedule = payment.schedule
+    source = payment.source_stop
+    destination = payment.destination_stop
+    journey_date = payment.journey_date
+
+    # Check that all required information exists.
+    if not all([schedule, source, destination, journey_date]):
+        return None
+
+    if schedule.departure_time is None:
+        return None
+
+    # Ensure both stops belong to the schedule's route.
+    if (
+        source.route_id != destination.route_id
+        or source.route_id != schedule.route_id
+    ):
+        return None
+
+    # The destination must come after the source.
+    if source.stop_order >= destination.stop_order:
+        return None
+
+    # Get only the stops after the source and up to
+    # and including the destination.
+    route_stops = (
+        source.route.route_stops
+        .filter(
+            stop_order__gt=source.stop_order,
+            stop_order__lte=destination.stop_order,
+        )
+        .order_by('stop_order')
+    )
+
+    elapsed_minutes = 0
+    destination_found = False
+
+    for route_stop in route_stops:
+        if route_stop.travel_time_minutes is None:
+            return None
+
+        elapsed_minutes += route_stop.travel_time_minutes
+
+        if route_stop.pk == destination.pk:
+            destination_found = True
+            break
+
+    # Do not calculate an expiry time if the destination
+    # was not found on the route.
+    if not destination_found:
+        return None
+
+    # Assumption: schedule.departure_time is the departure
+    # time from the beginning of the route.
+    departure_datetime = datetime.combine(
+        journey_date,
+        schedule.departure_time,
+    )
+
+    departure_datetime = timezone.make_aware(
+        departure_datetime,
+        timezone.get_current_timezone(),
+    )
+
+    return departure_datetime + timedelta(
+        minutes=elapsed_minutes
+    )
 
 def complete_past_tickets():
     """

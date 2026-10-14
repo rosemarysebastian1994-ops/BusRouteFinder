@@ -28,7 +28,8 @@ import traceback
 from .forms import TicketBookingForm
 
 from .services import (complete_past_tickets, get_available_seats, create_notification, notify_passengers_of_departure,
-                       notify_passengers_of_approaching, notify_passengers_of_arrival, notify_passengers_of_journey_completion,)
+                       notify_passengers_of_approaching, notify_passengers_of_arrival, notify_passengers_of_journey_completion,
+                       get_ticket_journey_end, get_payment_journey_end)
 
 STOP_APPROACHING_DISTANCE_KM = 1.0
 STOP_ARRIVAL_DISTANCE_KM = 0.08
@@ -3233,6 +3234,19 @@ def my_tickets(request):
         .order_by('-created_at')
     )
 
+    from django.utils import timezone
+
+    for ticket in tickets:
+        ticket.journey_ended = False
+
+        if ticket.status == 'PAYMENT_PENDING':
+            journey_end = get_ticket_journey_end(ticket)
+
+            if journey_end is not None:
+                ticket.journey_ended = (
+                        timezone.now() >= journey_end
+                )
+
     pending_payments = (
         Payment.objects
         .filter(
@@ -3252,6 +3266,15 @@ def my_tickets(request):
         )
         .order_by('-created_at')
     )
+
+    for payment in pending_payments:
+        payment.journey_ended = False
+        payment.journey_end = get_payment_journey_end(payment)
+
+        if payment.journey_end is not None:
+            payment.journey_ended = (
+                    timezone.now() >= payment.journey_end
+            )
 
     return render(
         request,
