@@ -7,7 +7,7 @@ from django.db import transaction
 from django.contrib.auth.decorators import user_passes_test
 from accounts.models import FavouriteRoute, FavouriteStop
 from django.db.models import Prefetch
-from .utils import find_routes_with_transfer
+from .utils import find_routes_with_transfer, calculate_route_fare
 
 
 def admin_required(view_func):
@@ -393,6 +393,11 @@ def route_search(request):
             destination_stop.stop
         )
 
+        # CALCULATE FARE PER PERSON
+        route.search_fare_per_person = calculate_route_fare(
+            source_stop,
+            destination_stop,
+        )
 
         # -----------------------------------------------------
         # STOPS BETWEEN SOURCE AND DESTINATION
