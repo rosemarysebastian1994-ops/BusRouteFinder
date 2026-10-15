@@ -1389,6 +1389,70 @@
                                 {% endif %}
                             </p>
 
+                            {% if journey.total_fare is not None %}
+                                <form method="post"
+                                      action="{% url 'buses:transfer_booking_checkout' %}"
+                                      class="mt-3">
+
+                                    {% csrf_token %}
+
+                                    <input type="hidden"
+                                           name="first_schedule_id"
+                                           value="{{ journey.first_schedule.id }}">
+
+                                    <input type="hidden"
+                                           name="second_schedule_id"
+                                           value="{{ journey.second_schedule.id }}">
+
+                                    <input type="hidden"
+                                           name="source_stop_id"
+                                           value="{{ journey.source_stop.id }}">
+
+                                    <input type="hidden"
+                                           name="transfer_stop_id"
+                                           value="{{ journey.transfer_stop.id }}">
+
+                                    <input type="hidden"
+                                           name="destination_stop_id"
+                                           value="{{ journey.destination_stop.id }}">
+
+                                    <input type="hidden"
+                                           name="first_journey_date"
+                                           value="{{ journey.first_departure|date:'Y-m-d' }}">
+
+                                    <input type="hidden"
+                                           name="second_journey_date"
+                                           value="{{ journey.second_departure|date:'Y-m-d' }}">
+
+                                    <div class="form-group">
+                                        <label for="passengers-{{ forloop.counter }}">
+                                            Number of passengers
+                                        </label>
+
+                                        <input
+                                            type="number"
+                                            id="passengers-{{ forloop.counter }}"
+                                            name="passenger_count"
+                                            class="form-control"
+                                            value="1"
+                                            min="1"
+                                            max="10"
+                                            required
+                                        >
+                                    </div>
+
+                                    <button type="submit"
+                                            class="btn btn-primary">
+                                        Book this journey
+                                    </button>
+
+                                </form>
+                            {% else %}
+                                <p class="text-muted">
+                                    Booking is unavailable because the fare could not be calculated.
+                                </p>
+                            {% endif %}
+
                         </div>
                     </div>
                 {% endfor %}

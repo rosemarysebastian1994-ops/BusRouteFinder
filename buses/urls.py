@@ -65,6 +65,12 @@ urlpatterns = [
     ),
 
     path(
+        'transfer-booking/',
+        views.transfer_booking_checkout,
+        name='transfer_booking_checkout'
+    ),
+
+    path(
         'calculate-booking-fare/',
         views.calculate_booking_fare,
         name='calculate_booking_fare'

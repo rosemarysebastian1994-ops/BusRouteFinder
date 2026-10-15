@@ -208,6 +208,7 @@ def _scheduled_time(schedule, stop, route_stops, origin_date):
     """
     Calculate the actual datetime at a stop for a schedule
     whose departure_time is the departure from the route origin.
+
     Return None if the schedule does not operate on origin_date.
     """
     if schedule.day != _day_code(origin_date):
@@ -218,10 +219,16 @@ def _scheduled_time(schedule, stop, route_stops, origin_date):
         schedule.departure_time,
     )
 
+    # Make the datetime timezone-aware.
+    if timezone.is_naive(origin_departure):
+        origin_departure = timezone.make_aware(
+            origin_departure,
+            timezone.get_current_timezone(),
+        )
+
     elapsed = _elapsed_from_origin(route_stops, stop)
 
     return origin_departure + timedelta(minutes=elapsed)
-
 
 def find_routes_with_transfer(
     source_stops,

@@ -1,5 +1,5 @@
 from django.utils import timezone
-from .models import Payment, Ticket, Notification
+from .models import Payment, Ticket, Notification, TransferBooking
 from django.db.models import Q
 
 from datetime import datetime, timedelta
@@ -207,12 +207,12 @@ def get_available_seats(
     journey_date,
     source_stop,
     destination_stop,
+    exclude_transfer_booking_id=None,
 ):
     """
     Calculate the number of seats available for a journey
     segment on a particular schedule and date.
     """
-
     bus = schedule.bus
 
     if bus is None:
@@ -243,7 +243,7 @@ def get_available_seats(
     )
 
     # ---------------------------------------------------------
-    # ACTIVE PAYMENT RESERVATIONS
+    # ACTIVE DIRECT PAYMENT RESERVATIONS
     # ---------------------------------------------------------
 
     active_payment_reservations = (
@@ -256,6 +256,7 @@ def get_available_seats(
                 'FAILED',
             ],
             ticket__isnull=True,
+            transfer_booking__isnull=True,
             source_stop__stop_order__lt=(
                 destination_stop.stop_order
             ),
@@ -271,12 +272,76 @@ def get_available_seats(
     )
 
     # ---------------------------------------------------------
+    # ACTIVE TRANSFER RESERVATIONS - FIRST LEG
+    # ---------------------------------------------------------
+
+    first_leg_reservations = (
+        TransferBooking.objects
+        .filter(
+            first_schedule=schedule,
+            first_journey_date=journey_date,
+            status='CREATED',
+            first_source_stop__stop_order__lt=(
+                destination_stop.stop_order
+            ),
+            first_destination_stop__stop_order__gt=(
+                source_stop.stop_order
+            ),
+        )
+    )
+
+    if exclude_transfer_booking_id is not None:
+        first_leg_reservations = (
+            first_leg_reservations.exclude(
+                pk=exclude_transfer_booking_id
+            )
+        )
+
+    first_leg_reserved_passengers = sum(
+        booking.passenger_count
+        for booking in first_leg_reservations
+    )
+
+    # ---------------------------------------------------------
+    # ACTIVE TRANSFER RESERVATIONS - SECOND LEG
+    # ---------------------------------------------------------
+
+    second_leg_reservations = (
+        TransferBooking.objects
+        .filter(
+            second_schedule=schedule,
+            second_journey_date=journey_date,
+            status='CREATED',
+            second_source_stop__stop_order__lt=(
+                destination_stop.stop_order
+            ),
+            second_destination_stop__stop_order__gt=(
+                source_stop.stop_order
+            ),
+        )
+    )
+
+    if exclude_transfer_booking_id is not None:
+        second_leg_reservations = (
+            second_leg_reservations.exclude(
+                pk=exclude_transfer_booking_id
+            )
+        )
+
+    second_leg_reserved_passengers = sum(
+        booking.passenger_count
+        for booking in second_leg_reservations
+    )
+
+    # ---------------------------------------------------------
     # TOTAL OCCUPIED / RESERVED SEATS
     # ---------------------------------------------------------
 
     occupied_seats = (
         booked_passengers
         + reserved_passengers
+        + first_leg_reserved_passengers
+        + second_leg_reserved_passengers
     )
 
     return max(

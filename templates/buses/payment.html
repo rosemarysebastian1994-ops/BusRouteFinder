@@ -18,57 +18,205 @@
                             Complete Payment
                         </h3>
 
-
                         <div class="mb-4">
 
-                            <p>
-                                <strong>Route:</strong>
-                                {{ payment.schedule.route.route_name }}
-                            </p>
+                            {% if transfer_booking %}
 
+                                <!-- TRANSFER BOOKING: FIRST LEG -->
+                                <div class="card mb-3 border-primary">
+                                    <div class="card-header bg-primary text-white">
+                                        <strong>Leg 1 — First Bus</strong>
+                                    </div>
 
-                            <p>
-                                <strong>From:</strong>
-                                {{ payment.source_stop.stop.name }}
-                            </p>
+                                    <div class="card-body">
 
+                                        <p>
+                                            <strong>Bus:</strong>
+                                            {{ transfer_booking.first_schedule.bus.bus_name }}
+                                            ({{ transfer_booking.first_schedule.bus.bus_number }})
+                                        </p>
 
-                            <p>
-                                <strong>To:</strong>
-                                {{ payment.destination_stop.stop.name }}
-                            </p>
+                                        <p>
+                                            <strong>Route:</strong>
+                                            {{ transfer_booking.first_schedule.route.route_name }}
+                                        </p>
 
+                                        <p>
+                                            <strong>From:</strong>
+                                            {{ transfer_booking.first_source_stop.stop.name }}
+                                        </p>
 
-                            <p>
-                                <strong>Journey Date:</strong>
-                                {{ payment.journey_date }}
-                            </p>
+                                        <p>
+                                            <strong>Transfer stop:</strong>
+                                            {{ transfer_booking.first_destination_stop.stop.name }}
+                                        </p>
 
-                            <p>
-                                <strong>Journey Time:</strong>
-                                {{ payment.schedule.departure_time|time:"h:i A" }}
+                                        <p>
+                                            <strong>Journey date:</strong>
+                                            {{ transfer_booking.first_journey_date|date:"d M Y" }}
+                                        </p>
 
-                                {% if payment.schedule.arrival_time %}
-                                    – {{ payment.schedule.arrival_time|time:"h:i A" }}
-                                {% endif %}
-                            </p>
+                                        <p>
+                                            <strong>Departure:</strong>
+                                            {{ transfer_booking.first_schedule.departure_time|time:"h:i A" }}
+                                        </p>
 
-                            <p>
-                                <strong>Passengers:</strong>
-                                {{ payment.passenger_count }}
-                            </p>
+                                        {% if transfer_booking.first_schedule.arrival_time %}
+                                            <p>
+                                                <strong>Scheduled arrival:</strong>
+                                                {{ transfer_booking.first_schedule.arrival_time|time:"h:i A" }}
+                                            </p>
+                                        {% endif %}
 
+                                        <p class="mb-0">
+                                            <strong>Fare per passenger:</strong>
+                                            ₹{{ first_fare|floatformat:2 }}
+                                        </p>
 
-                            <p>
-                                <strong>Fare per passenger:</strong>
-                                ₹{{ payment.fare_per_passenger }}
-                            </p>
+                                    </div>
+                                </div>
 
+                                <!-- TRANSFER POINT -->
+                                <div class="text-center my-3">
+                                    <i class="bi bi-arrow-down-circle"></i>
+                                    <strong>
+                                        Change buses at
+                                        {{ transfer_booking.first_destination_stop.stop.name }}
+                                    </strong>
+                                </div>
 
-                            <h4 class="mt-4">
-                                Total:
-                                ₹{{ payment.total_amount }}
-                            </h4>
+                                <!-- TRANSFER BOOKING: SECOND LEG -->
+                                <div class="card mb-3 border-success">
+                                    <div class="card-header bg-success text-white">
+                                        <strong>Leg 2 — Second Bus</strong>
+                                    </div>
+
+                                    <div class="card-body">
+
+                                        <p>
+                                            <strong>Bus:</strong>
+                                            {{ transfer_booking.second_schedule.bus.bus_name }}
+                                            ({{ transfer_booking.second_schedule.bus.bus_number }})
+                                        </p>
+
+                                        <p>
+                                            <strong>Route:</strong>
+                                            {{ transfer_booking.second_schedule.route.route_name }}
+                                        </p>
+
+                                        <p>
+                                            <strong>From:</strong>
+                                            {{ transfer_booking.second_source_stop.stop.name }}
+                                        </p>
+
+                                        <p>
+                                            <strong>To:</strong>
+                                            {{ transfer_booking.second_destination_stop.stop.name }}
+                                        </p>
+
+                                        <p>
+                                            <strong>Journey date:</strong>
+                                            {{ transfer_booking.second_journey_date|date:"d M Y" }}
+                                        </p>
+
+                                        <p>
+                                            <strong>Departure:</strong>
+                                            {{ transfer_booking.second_schedule.departure_time|time:"h:i A" }}
+                                        </p>
+
+                                        {% if transfer_booking.second_schedule.arrival_time %}
+                                            <p>
+                                                <strong>Scheduled arrival:</strong>
+                                                {{ transfer_booking.second_schedule.arrival_time|time:"h:i A" }}
+                                            </p>
+                                        {% endif %}
+
+                                        <p class="mb-0">
+                                            <strong>Fare per passenger:</strong>
+                                            ₹{{ second_fare|floatformat:2 }}
+                                        </p>
+
+                                    </div>
+                                </div>
+
+                                <!-- COMBINED TRANSFER FARE -->
+                                <div class="border rounded p-3 mt-4">
+
+                                    <h5>Fare Summary</h5>
+
+                                    <p>
+                                        First bus:
+                                        ₹{{ first_fare|floatformat:2 }}
+                                        × {{ transfer_booking.passenger_count }}
+                                    </p>
+
+                                    <p>
+                                        Second bus:
+                                        ₹{{ second_fare|floatformat:2 }}
+                                        × {{ transfer_booking.passenger_count }}
+                                    </p>
+
+                                    <p>
+                                        <strong>Passengers:</strong>
+                                        {{ transfer_booking.passenger_count }}
+                                    </p>
+
+                                    <hr>
+
+                                    <h4>
+                                        Total:
+                                        ₹{{ transfer_booking.total_amount|floatformat:2 }}
+                                    </h4>
+
+                                </div>
+
+                            {% else %}
+
+                                <!-- EXISTING DIRECT BOOKING SUMMARY -->
+                                <p>
+                                    <strong>Route:</strong>
+                                    {{ payment.schedule.route.route_name }}
+                                </p>
+
+                                <p>
+                                    <strong>From:</strong>
+                                    {{ payment.source_stop.stop.name }}
+                                </p>
+
+                                <p>
+                                    <strong>To:</strong>
+                                    {{ payment.destination_stop.stop.name }}
+                                </p>
+
+                                <p>
+                                    <strong>Journey Date:</strong>
+                                    {{ payment.journey_date|date:"d M Y" }}
+                                </p>
+
+                                <p>
+                                    <strong>Journey Time:</strong>
+                                    {{ payment.schedule.departure_time|time:"h:i A" }}
+
+                                    {% if payment.schedule.arrival_time %}
+                                        – {{ payment.schedule.arrival_time|time:"h:i A" }}
+                                    {% endif %}
+                                </p>
+
+                                <p>
+                                    <strong>Passengers:</strong>
+                                    {{ payment.passenger_count }}
+                                </p>
+
+                                <p>
+                                    <strong>Fare per passenger:</strong>
+                                    ₹{{ payment.fare_per_passenger|floatformat:2 }}
+                                </p>
+
+                                <h4 class="mt-4">
+                                    Total: ₹{{ payment.total_amount|floatformat:2 }}
+                                </h4>
+
+                            {% endif %}
 
                         </div>
 
@@ -356,8 +504,25 @@
         })
         .then(function (data) {
 
+
             if (data.success) {
 
+                // Transfer booking: both tickets were created.
+                if (data.transfer_booking && data.ticket_ids) {
+
+                    // Temporarily redirect to the first ticket.
+                    // We will add a combined transfer-ticket page next.
+                    window.location.href =
+                        "{% url 'buses:ticket_detail' 0 %}"
+                        .replace(
+                            '/0/',
+                            '/' + data.ticket_ids[0] + '/'
+                        );
+
+                    return;
+                }
+
+                // Direct booking: preserve existing behaviour.
                 window.location.href =
                     "{% url 'buses:ticket_detail' 0 %}"
                     .replace(
@@ -366,9 +531,7 @@
                     );
 
                 return;
-
             }
-
 
             showPaymentMessage(
                 data.message ||

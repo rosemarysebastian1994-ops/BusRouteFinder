@@ -15,7 +15,8 @@ import uuid
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from .models import Bus, BusLocation, BusStopVisit, Notification, Ticket, Payment
+from .models import Bus, BusLocation, BusStopVisit, Notification, Ticket, Payment, TransferBooking
+from routes.utils import calculate_route_fare, _scheduled_time, _segment_duration
 
 from django.contrib.admin.views.decorators import staff_member_required
 
@@ -2541,8 +2542,6 @@ def schedule_stops(request):
 
     return JsonResponse({'stops': stops_data})
 
-from routes.utils import calculate_route_fare
-
 @login_required
 def book_ticket(request):
     if not request.user.groups.filter(name='Passengers').exists():
@@ -3746,7 +3745,6 @@ def verify_payment(request):
     if not request.user.groups.filter(
         name='Passengers'
     ).exists():
-
         return JsonResponse(
             {
                 'success': False,
@@ -3755,24 +3753,11 @@ def verify_payment(request):
             status=403
         )
 
-    payment_id = request.POST.get(
-        'razorpay_payment_id'
-    )
+    payment_id = request.POST.get('razorpay_payment_id')
+    order_id = request.POST.get('razorpay_order_id')
+    signature = request.POST.get('razorpay_signature')
 
-    order_id = request.POST.get(
-        'razorpay_order_id'
-    )
-
-    signature = request.POST.get(
-        'razorpay_signature'
-    )
-
-    if not all([
-        payment_id,
-        order_id,
-        signature,
-    ]):
-
+    if not all([payment_id, order_id, signature]):
         return JsonResponse(
             {
                 'success': False,
@@ -3784,6 +3769,7 @@ def verify_payment(request):
     payment = get_object_or_404(
         Payment.objects.select_related(
             'ticket',
+            'transfer_booking',
             'schedule',
             'source_stop',
             'destination_stop',
@@ -3791,63 +3777,6 @@ def verify_payment(request):
         razorpay_order_id=order_id,
         passenger=request.user
     )
-
-    # ALREADY PAID
-    if payment.status == 'PAID':
-
-        if payment.ticket:
-
-            return JsonResponse(
-                {
-                    'success': True,
-                    'ticket_id': payment.ticket.id
-                }
-            )
-
-        return JsonResponse(
-            {
-                'success': False,
-                'message': (
-                    'Payment is already marked as paid, '
-                    'but the ticket could not be found.'
-                )
-            },
-            status=400
-        )
-
-    # PAYMENT MUST BE CREATED OR FAILED
-    if payment.status not in ['CREATED', 'FAILED']:
-
-        return JsonResponse(
-            {
-                'success': False,
-                'message': (
-                    'This payment is no longer available '
-                    'for verification.'
-                )
-            },
-            status=400
-        )
-
-    # CHECK RESERVATION DATA
-    if not all([
-        payment.schedule,
-        payment.source_stop,
-        payment.destination_stop,
-        payment.journey_date,
-        payment.fare_per_passenger,
-        payment.total_amount,
-    ]):
-
-        return JsonResponse(
-            {
-                'success': False,
-                'message': (
-                    'Payment reservation data is incomplete.'
-                )
-            },
-            status=400
-        )
 
     # VERIFY RAZORPAY SIGNATURE
     client = razorpay.Client(
@@ -3858,7 +3787,6 @@ def verify_payment(request):
     )
 
     try:
-
         client.utility.verify_payment_signature(
             {
                 'razorpay_order_id': order_id,
@@ -3866,23 +3794,401 @@ def verify_payment(request):
                 'razorpay_signature': signature,
             }
         )
-
     except razorpay.errors.SignatureVerificationError:
-
         return JsonResponse(
             {
                 'success': False,
-                'message': (
-                    'Payment verification failed.'
-                )
+                'message': 'Payment verification failed.'
             },
             status=400
         )
 
-    # CREATE TICKET + UPDATE PAYMENT
-    # AS ONE ATOMIC OPERATION
+    try:
+        gateway_payment = client.payment.fetch(payment_id)
 
+    except Exception:
+        logger.exception(
+            "Could not retrieve Razorpay payment %s",
+            payment_id,
+        )
+        return JsonResponse(
+            {
+                'success': False,
+                'message': (
+                    'Unable to confirm payment status. '
+                    'Please try again shortly.'
+                ),
+            },
+            status=503,
+        )
+
+    expected_amount_paise = int(payment.amount * 100)
+
+    if (
+            gateway_payment.get('order_id') != payment.razorpay_order_id
+            or gateway_payment.get('status') != 'captured'
+            or gateway_payment.get('amount') != expected_amount_paise
+            or gateway_payment.get('currency') != payment.currency
+    ):
+        return JsonResponse(
+            {
+                'success': False,
+                'message': (
+                    'Payment is not captured or does not match '
+                    'the expected order, amount, or currency.'
+                ),
+            },
+            status=400,
+        )
+
+    # Confirm that the submitted order matches the stored payment.
+    if order_id != payment.razorpay_order_id:
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'Payment order mismatch.',
+            },
+            status=400,
+        )
+
+    if payment.amount is None or payment.amount <= 0:
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'Invalid payment amount.',
+            },
+            status=400,
+        )
+
+    if payment.currency != 'INR':
+        return JsonResponse(
+            {
+                'success': False,
+                'message': 'Unsupported payment currency.',
+            },
+            status=400,
+        )
+
+    # PROCESS PAYMENT ATOMICALLY
     with transaction.atomic():
+
+        payment = get_object_or_404(
+            Payment.objects.select_for_update().select_related(
+                'transfer_booking',
+                'ticket',
+                'schedule',
+                'source_stop',
+                'destination_stop',
+            ),
+            razorpay_order_id=order_id,
+            passenger=request.user
+        )
+
+        # ALREADY PAID: RETURN EXISTING TICKETS
+        if payment.status == 'PAID':
+
+            if payment.transfer_booking_id:
+                tickets = list(
+                    Ticket.objects.filter(
+                        transfer_booking_id=payment.transfer_booking_id
+                    ).order_by('transfer_leg')
+                )
+
+                if len(tickets) == 2:
+                    return JsonResponse(
+                        {
+                            'success': True,
+                            'ticket_id': tickets[0].id,
+                            'ticket_ids': [t.id for t in tickets],
+                            'transfer_booking': True,
+                        }
+                    )
+
+                return JsonResponse(
+                    {
+                        'success': False,
+                        'message': (
+                            'Payment is marked as paid, but both '
+                            'transfer tickets could not be found. '
+                            'Please contact support.'
+                        )
+                    },
+                    status=400
+                )
+
+            if payment.ticket_id:
+                return JsonResponse(
+                    {
+                        'success': True,
+                        'ticket_id': payment.ticket_id,
+                        'transfer_booking': False,
+                    }
+                )
+
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': (
+                        'Payment is marked as paid, but the ticket '
+                        'could not be found. Please contact support.'
+                    )
+                },
+                status=400
+            )
+
+        # ONLY CREATED OR FAILED PAYMENTS CAN BE PROCESSED
+        if payment.status not in ['CREATED', 'FAILED']:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': (
+                        'This payment is no longer available '
+                        'for verification.'
+                    )
+                },
+                status=400
+            )
+
+        # -----------------------------------------
+        # TRANSFER BOOKING: CREATE TWO TICKETS
+        # -----------------------------------------
+        if payment.transfer_booking_id:
+
+            booking = payment.transfer_booking
+
+            if booking.passenger_id != payment.passenger_id:
+                return JsonResponse(
+                    {
+                        'success': False,
+                        'message': 'Transfer booking ownership mismatch.',
+                    },
+                    status=400,
+                )
+
+            if booking.status != 'CREATED':
+                return JsonResponse(
+                    {
+                        'success': False,
+                        'message': (
+                            'This transfer booking is no longer '
+                            'available for confirmation.'
+                        )
+                    },
+                    status=400
+                )
+
+            required_values = [
+                booking.first_schedule,
+                booking.first_source_stop,
+                booking.first_destination_stop,
+                booking.first_journey_date,
+                booking.first_fare_per_passenger,
+                booking.second_schedule,
+                booking.second_source_stop,
+                booking.second_destination_stop,
+                booking.second_journey_date,
+                booking.second_fare_per_passenger,
+                booking.passenger_count,
+                booking.total_amount,
+            ]
+
+            if not all(value is not None for value in required_values):
+                return JsonResponse(
+                    {
+                        'success': False,
+                        'message': (
+                            'Transfer booking data is incomplete.'
+                        )
+                    },
+                    status=400
+                )
+
+            expected_total = (
+                                     booking.first_fare_per_passenger
+                                     + booking.second_fare_per_passenger
+                             ) * booking.passenger_count
+
+            if (
+                    booking.total_amount != expected_total
+                    or payment.amount != expected_total
+                    or payment.total_amount != expected_total
+            ):
+                return JsonResponse(
+                    {
+                        'success': False,
+                        'message': (
+                            'The payment amount does not match '
+                            'the transfer booking total.'
+                        ),
+                    },
+                    status=400,
+                )
+
+            first_available = get_available_seats(
+                booking.first_schedule,
+                booking.first_journey_date,
+                booking.first_source_stop,
+                booking.first_destination_stop,
+                exclude_transfer_booking_id=booking.pk,
+            )
+
+            second_available = get_available_seats(
+                booking.second_schedule,
+                booking.second_journey_date,
+                booking.second_source_stop,
+                booking.second_destination_stop,
+                exclude_transfer_booking_id=booking.pk,
+            )
+
+            if (
+                    first_available < booking.passenger_count
+                    or second_available < booking.passenger_count
+            ):
+                return JsonResponse(
+                    {
+                        'success': False,
+                        'message': (
+                            'There are no longer enough seats available '
+                            'for one or both legs of this transfer. '
+                            'Please contact support regarding your payment.'
+                        ),
+                    },
+                    status=409,
+                )
+
+            first_ticket = Ticket.objects.create(
+                passenger=booking.passenger,
+                schedule=booking.first_schedule,
+                source_stop=booking.first_source_stop,
+                destination_stop=booking.first_destination_stop,
+                journey_date=booking.first_journey_date,
+                passenger_count=booking.passenger_count,
+                fare_per_passenger=(
+                    booking.first_fare_per_passenger
+                ),
+                status='CONFIRMED',
+                seat_numbers=booking.first_seat_numbers,
+                transfer_booking=booking,
+                transfer_leg='FIRST',
+            )
+
+            second_ticket = Ticket.objects.create(
+                passenger=booking.passenger,
+                schedule=booking.second_schedule,
+                source_stop=booking.second_source_stop,
+                destination_stop=booking.second_destination_stop,
+                journey_date=booking.second_journey_date,
+                passenger_count=booking.passenger_count,
+                fare_per_passenger=(
+                    booking.second_fare_per_passenger
+                ),
+                status='CONFIRMED',
+                seat_numbers=booking.second_seat_numbers,
+                transfer_booking=booking,
+                transfer_leg='SECOND',
+            )
+
+            # PAYMENT POINTS TO THE FIRST TICKET;
+            # BOTH TICKETS ARE LINKED THROUGH TRANSFER BOOKING.
+            payment.ticket = first_ticket
+            payment.razorpay_payment_id = payment_id
+            payment.razorpay_signature = signature
+            payment.status = 'PAID'
+            payment.failure_reason = None
+
+            payment.save(
+                update_fields=[
+                    'ticket',
+                    'razorpay_payment_id',
+                    'razorpay_signature',
+                    'status',
+                    'failure_reason',
+                    'updated_at',
+                ]
+            )
+
+            booking.status = 'PAID'
+            booking.save(
+                update_fields=['status', 'updated_at']
+            )
+
+            create_notification(
+                passenger=booking.passenger,
+                title='Transfer Journey Confirmed',
+                message=(
+                    f'Your transfer journey is confirmed. '
+                    f'First ticket: {first_ticket.ticket_number}. '
+                    f'Second ticket: {second_ticket.ticket_number}.'
+                ),
+                notification_type='BOOKING',
+                ticket=first_ticket,
+            )
+
+            create_notification(
+                passenger=booking.passenger,
+                title='Second Leg Confirmed',
+                message=(
+                    f'Your second-leg ticket '
+                    f'{second_ticket.ticket_number} is confirmed '
+                    f'for {second_ticket.source_stop.stop.name} '
+                    f'to {second_ticket.destination_stop.stop.name}.'
+                ),
+                notification_type='BOOKING',
+                ticket=second_ticket,
+            )
+
+            return JsonResponse(
+                {
+                    'success': True,
+                    'ticket_id': first_ticket.id,
+                    'ticket_ids': [
+                        first_ticket.id,
+                        second_ticket.id,
+                    ],
+                    'transfer_booking': True,
+                }
+            )
+
+        # -----------------------------------------
+        # DIRECT BOOKING: KEEP EXISTING BEHAVIOUR
+        # -----------------------------------------
+        if not all([
+            payment.schedule,
+            payment.source_stop,
+            payment.destination_stop,
+            payment.journey_date,
+            payment.fare_per_passenger is not None,
+            payment.total_amount is not None,
+        ]):
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': (
+                        'Payment reservation data is incomplete.'
+                    )
+                },
+                status=400
+            )
+
+        expected_total = (
+                payment.fare_per_passenger
+                * payment.passenger_count
+        )
+
+        if (
+                payment.total_amount != expected_total
+                or payment.amount != expected_total
+        ):
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': (
+                        'The payment amount does not match '
+                        'the ticket total.'
+                    ),
+                },
+                status=400,
+            )
 
         ticket = Ticket.objects.create(
             passenger=payment.passenger,
@@ -3891,38 +4197,15 @@ def verify_payment(request):
             destination_stop=payment.destination_stop,
             journey_date=payment.journey_date,
             passenger_count=payment.passenger_count,
-            fare_per_passenger=(
-                payment.fare_per_passenger
-            ),
+            fare_per_passenger=payment.fare_per_passenger,
             status='CONFIRMED',
             seat_numbers=payment.seat_numbers,
         )
 
         payment.ticket = ticket
-
-        payment.razorpay_payment_id = (
-            payment_id
-        )
-
-        payment.razorpay_signature = (
-            signature
-        )
-
-
+        payment.razorpay_payment_id = payment_id
+        payment.razorpay_signature = signature
         payment.status = 'PAID'
-
-        create_notification(
-            passenger=payment.passenger,
-            title='Ticket Confirmed',
-            message=(
-                f'Your ticket {ticket.ticket_number} has been confirmed '
-                f'for {ticket.source_stop.stop.name} to '
-                f'{ticket.destination_stop.stop.name}.'
-            ),
-            notification_type='BOOKING',
-            ticket=ticket,
-        )
-
         payment.failure_reason = None
 
         payment.save(
@@ -3936,10 +4219,23 @@ def verify_payment(request):
             ]
         )
 
+        create_notification(
+            passenger=payment.passenger,
+            title='Ticket Confirmed',
+            message=(
+                f'Your ticket {ticket.ticket_number} has been confirmed '
+                f'for {ticket.source_stop.stop.name} to '
+                f'{ticket.destination_stop.stop.name}.'
+            ),
+            notification_type='BOOKING',
+            ticket=ticket,
+        )
+
     return JsonResponse(
         {
             'success': True,
             'ticket_id': ticket.id,
+            'transfer_booking': False,
         }
     )
 
@@ -4050,6 +4346,410 @@ def payment_failure(request):
     )
 
 @login_required
+@require_POST
+def transfer_booking_checkout(request):
+    # Only passengers may book.
+    if not request.user.groups.filter(name='Passengers').exists():
+        messages.error(request, 'Only passengers can book tickets.')
+        return redirect('core:home')
+
+    # Read IDs and dates from the form.
+    try:
+        first_schedule_id = int(request.POST['first_schedule_id'])
+        second_schedule_id = int(request.POST['second_schedule_id'])
+
+        source_stop_id = int(request.POST['source_stop_id'])
+        transfer_stop_id = int(request.POST['transfer_stop_id'])
+        destination_stop_id = int(request.POST['destination_stop_id'])
+
+        first_journey_date = datetime.strptime(
+            request.POST['first_journey_date'], '%Y-%m-%d'
+        ).date()
+
+        second_journey_date = datetime.strptime(
+            request.POST['second_journey_date'], '%Y-%m-%d'
+        ).date()
+
+        passenger_count = int(request.POST.get('passenger_count', '1'))
+
+    except (KeyError, ValueError, TypeError):
+        messages.error(request, 'Invalid transfer booking details.')
+        return redirect('core:home')
+
+    if not 1 <= passenger_count <= 10:
+        messages.error(request, 'Please select between 1 and 10 passengers.')
+        return redirect('core:home')
+
+    now = timezone.localtime()
+    today = now.date()
+
+    if first_journey_date < today or second_journey_date < today:
+        messages.error(request, 'You cannot book a journey for a past date.')
+        return redirect('core:home')
+
+    # Load both schedules.
+    first_schedule = get_object_or_404(
+        BusSchedule.objects.select_related('route', 'bus'),
+        pk=first_schedule_id,
+    )
+
+    second_schedule = get_object_or_404(
+        BusSchedule.objects.select_related('route', 'bus'),
+        pk=second_schedule_id,
+    )
+
+    # A schedule must be active and have a bus assigned.
+    if (
+        not first_schedule.is_active
+        or first_schedule.bus_id is None
+        or not second_schedule.is_active
+        or second_schedule.bus_id is None
+    ):
+        messages.error(request, 'One of the selected buses is unavailable.')
+        return redirect('core:home')
+
+    # The two legs must use different routes.
+    if first_schedule.route_id == second_schedule.route_id:
+        messages.error(request, 'The selected journey is not a valid transfer.')
+        return redirect('core:home')
+
+    # Get the ordered stops on each route.
+    first_route_stops = list(
+        RouteStop.objects.filter(route_id=first_schedule.route_id)
+        .select_related('stop')
+        .order_by('stop_order')
+    )
+
+    second_route_stops = list(
+        RouteStop.objects.filter(route_id=second_schedule.route_id)
+        .select_related('stop')
+        .order_by('stop_order')
+    )
+
+    # Find the requested stops on the corresponding routes.
+    first_source = next(
+        (rs for rs in first_route_stops if rs.stop_id == source_stop_id),
+        None,
+    )
+    first_transfer = next(
+        (rs for rs in first_route_stops if rs.stop_id == transfer_stop_id),
+        None,
+    )
+    second_transfer = next(
+        (rs for rs in second_route_stops if rs.stop_id == transfer_stop_id),
+        None,
+    )
+    second_destination = next(
+        (rs for rs in second_route_stops if rs.stop_id == destination_stop_id),
+        None,
+    )
+
+    if not all([
+        first_source,
+        first_transfer,
+        second_transfer,
+        second_destination,
+    ]):
+        messages.error(
+            request,
+            'One or more selected stops do not belong to the selected routes.',
+        )
+        return redirect('core:home')
+
+    # Ensure that each leg travels forward along its route.
+    if first_source.stop_order >= first_transfer.stop_order:
+        messages.error(request, 'The first leg has an invalid stop order.')
+        return redirect('core:home')
+
+    if second_transfer.stop_order >= second_destination.stop_order:
+        messages.error(request, 'The second leg has an invalid stop order.')
+        return redirect('core:home')
+
+    # Resolve the actual scheduled departure at each boarding stop.
+    # The schedule's origin departure may be on the previous calendar day
+    # when the bus reaches the boarding stop after midnight.
+    first_departure = None
+
+    for offset in (-1, 0):
+        origin_date = first_journey_date + timedelta(days=offset)
+
+        candidate = _scheduled_time(
+            first_schedule,
+            first_source,
+            first_route_stops,
+            origin_date,
+        )
+
+        if candidate and candidate.date() == first_journey_date:
+            first_departure = candidate
+            break
+
+    second_departure = None
+
+    for offset in (-1, 0):
+        origin_date = second_journey_date + timedelta(days=offset)
+
+        candidate = _scheduled_time(
+            second_schedule,
+            second_transfer,
+            second_route_stops,
+            origin_date,
+        )
+
+        if candidate and candidate.date() == second_journey_date:
+            second_departure = candidate
+            break
+
+    if first_departure is None or second_departure is None:
+        messages.error(
+            request,
+            'The selected departure dates do not match the bus schedules.',
+        )
+        return redirect('core:home')
+
+    # Calculate the actual travel time from the source to the transfer stop.
+    first_duration = _segment_duration(
+        first_route_stops,
+        first_source,
+        first_transfer,
+    )
+
+    transfer_arrival = first_departure + timedelta(
+        minutes=first_duration
+    )
+
+    # Require at least a 30-minute transfer connection.
+    minimum_connection = transfer_arrival + timedelta(minutes=30)
+
+    # Ensure all datetimes are timezone-aware.
+    if timezone.is_naive(first_departure):
+        first_departure = timezone.make_aware(
+            first_departure,
+            timezone.get_current_timezone(),
+        )
+
+    if timezone.is_naive(second_departure):
+        second_departure = timezone.make_aware(
+            second_departure,
+            timezone.get_current_timezone(),
+        )
+
+    if timezone.is_naive(transfer_arrival):
+        transfer_arrival = timezone.make_aware(
+            transfer_arrival,
+            timezone.get_current_timezone(),
+        )
+
+    if timezone.is_naive(minimum_connection):
+        minimum_connection = timezone.make_aware(
+            minimum_connection,
+            timezone.get_current_timezone(),
+        )
+
+    now = timezone.now()
+
+    # Require at least 30 minutes between buses.
+    if second_departure < minimum_connection:
+        messages.error(
+            request,
+            'There is not enough time to transfer between these buses.',
+        )
+        return redirect('core:home')
+
+    # Reject bookings if the first bus has already departed.
+    if now >= first_departure:
+        messages.error(
+            request,
+            'The first bus has already departed from your boarding stop.',
+        )
+        return redirect('core:home')
+
+    # Recalculate both fares on the server.
+    try:
+        first_fare = calculate_route_fare(
+            first_source,
+            first_transfer,
+        )
+
+        second_fare = calculate_route_fare(
+            second_transfer,
+            second_destination,
+        )
+
+    except ValidationError as error:
+        messages.error(request, str(error))
+        return redirect('core:home')
+
+    fare_per_passenger = first_fare + second_fare
+    total_amount = fare_per_passenger * Decimal(passenger_count)
+    amount_paise = int(total_amount * 100)
+
+    if total_amount <= 0 or amount_paise <= 0:
+        messages.error(request, 'The calculated fare is invalid.')
+        return redirect('core:home')
+
+    # Check capacity independently for both journey segments.
+    try:
+        first_available = get_available_seats(
+            schedule=first_schedule,
+            journey_date=first_journey_date,
+            source_stop=first_source,
+            destination_stop=first_transfer,
+        )
+
+        second_available = get_available_seats(
+            schedule=second_schedule,
+            journey_date=second_journey_date,
+            source_stop=second_transfer,
+            destination_stop=second_destination,
+        )
+
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            'Transfer booking availability check failed.'
+        )
+
+        messages.error(
+            request,
+            'Unable to verify seat availability. Please try again.',
+        )
+        return redirect('core:home')
+
+    if first_available < passenger_count:
+        messages.error(
+            request,
+            f'Only {first_available} seats are available on the first bus.',
+        )
+        return redirect('core:home')
+
+    if second_available < passenger_count:
+        messages.error(
+            request,
+            f'Only {second_available} seats are available on the second bus.',
+        )
+        return redirect('core:home')
+
+    # Create one Razorpay order for the combined fare.
+    if not settings.RAZORPAY_KEY_ID or not settings.RAZORPAY_KEY_SECRET:
+        razorpay_order = {
+            'id': f'order_fake_{uuid.uuid4().hex[:10]}'
+        }
+    else:
+        client = razorpay.Client(
+            auth=(
+                settings.RAZORPAY_KEY_ID,
+                settings.RAZORPAY_KEY_SECRET,
+            )
+        )
+
+        try:
+            razorpay_order = client.order.create({
+                'amount': amount_paise,
+                'currency': 'INR',
+                'receipt': f'BRF-{uuid.uuid4().hex[:10].upper()}',
+                'notes': {
+                    'passenger_id': str(request.user.id),
+                    'booking_type': 'TRANSFER',
+                    'first_schedule_id': str(first_schedule.id),
+                    'second_schedule_id': str(second_schedule.id),
+                    'source_stop_id': str(first_source.id),
+                    'first_transfer_stop_id': str(first_transfer.id),
+                    'second_transfer_stop_id': str(second_transfer.id),
+                    'destination_stop_id': str(second_destination.id),
+                    'first_journey_date': str(first_journey_date),
+                    'second_journey_date': str(second_journey_date),
+                    'passenger_count': str(passenger_count),
+                },
+            })
+
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                'Razorpay transfer order creation failed.'
+            )
+
+            messages.error(
+                request,
+                'The payment gateway could not create your order. Please try again.',
+            )
+            return redirect('core:home')
+
+    # Save the booking and its single payment record.
+    try:
+        with transaction.atomic():
+            transfer_booking = TransferBooking.objects.create(
+                passenger=request.user,
+
+                first_schedule=first_schedule,
+                first_source_stop=first_source,
+                first_destination_stop=first_transfer,
+                first_journey_date=first_journey_date,
+                first_fare_per_passenger=first_fare,
+                first_seat_numbers=[],
+
+                second_schedule=second_schedule,
+                second_source_stop=second_transfer,
+                second_destination_stop=second_destination,
+                second_journey_date=second_journey_date,
+                second_fare_per_passenger=second_fare,
+                second_seat_numbers=[],
+
+                passenger_count=passenger_count,
+                total_amount=total_amount,
+                status='CREATED',
+            )
+
+            payment = Payment.objects.create(
+                passenger=request.user,
+                transfer_booking=transfer_booking,
+
+                # These fields describe the first leg. The transfer_booking
+                # relation identifies the complete two-leg booking.
+                schedule=first_schedule,
+                source_stop=first_source,
+                destination_stop=first_transfer,
+                journey_date=first_journey_date,
+
+                passenger_count=passenger_count,
+                fare_per_passenger=fare_per_passenger,
+                total_amount=total_amount,
+
+                razorpay_order_id=razorpay_order['id'],
+                amount=total_amount,
+                currency='INR',
+                status='CREATED',
+            )
+
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            'Could not save transfer booking and payment.'
+        )
+
+        messages.error(
+            request,
+            'Could not save your booking. Please try again.',
+        )
+        return redirect('core:home')
+
+    return render(
+        request,
+        'buses/payment.html',
+        {
+            'payment': payment,
+            'razorpay_key_id': settings.RAZORPAY_KEY_ID,
+            'selected_seats': [],
+            'transfer_booking': transfer_booking,
+            'first_fare': first_fare,
+            'second_fare': second_fare,
+        },
+    )
+
+@login_required
 def payment_page(request, payment_id):
 
     if not request.user.groups.filter(
@@ -4067,6 +4767,8 @@ def payment_page(request, payment_id):
 
     payment = get_object_or_404(
         Payment.objects.select_related(
+            'ticket',
+            'transfer_booking',
             'schedule',
             'schedule__route',
             'schedule__bus',
@@ -4117,16 +4819,31 @@ def payment_page(request, payment_id):
             'buses:my_tickets'
         )
 
+
+    context = {
+        'payment': payment,
+        'razorpay_key_id': settings.RAZORPAY_KEY_ID,
+    }
+
+    if payment.transfer_booking_id:
+        transfer_booking = payment.transfer_booking
+
+        context.update({
+            'transfer_booking': transfer_booking,
+            'first_fare': (
+                transfer_booking.first_fare_per_passenger
+            ),
+            'second_fare': (
+                transfer_booking.second_fare_per_passenger
+            ),
+        })
+
     return render(
         request,
         'buses/payment.html',
-        {
-            'payment': payment,
-            'razorpay_key_id': (
-                settings.RAZORPAY_KEY_ID
-            ),
-        }
+        context,
     )
+
 
 @login_required
 def check_seat_availability(request):

@@ -286,8 +286,37 @@ class Ticket(models.Model):
     # Add this field if not exists
     seat_numbers = models.JSONField(default=list, blank=True, help_text="Selected seat numbers like [12, 13]")
 
+    transfer_booking = models.ForeignKey(
+        'TransferBooking',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tickets',
+    )
+
+    transfer_leg = models.CharField(
+        max_length=10,
+        choices=[
+            ('FIRST', 'First Leg'),
+            ('SECOND', 'Second Leg'),
+        ],
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         ordering = ['-created_at']
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=['transfer_booking', 'transfer_leg'],
+                condition=models.Q(
+                    transfer_booking__isnull=False,
+                    transfer_leg__isnull=False,
+                ),
+                name='unique_transfer_booking_leg',
+            ),
+        ]
 
     def clean(self):
 
@@ -465,8 +494,107 @@ class Payment(models.Model):
 
     seat_numbers = models.JSONField(default=list, blank=True)
 
+    transfer_booking = models.OneToOneField(
+        'TransferBooking',
+        on_delete=models.PROTECT,
+        related_name='payment',
+        null=True,
+        blank=True,
+    )
+
     def __str__(self):
         return self.razorpay_order_id
+
+
+class TransferBooking(models.Model):
+
+    STATUS_CHOICES = [
+        ('CREATED', 'Payment Pending'),
+        ('PAID', 'Paid'),
+        ('FAILED', 'Payment Failed'),
+        ('CANCELLED', 'Cancelled'),
+    ]
+
+    passenger = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='transfer_bookings',
+    )
+
+    # First bus leg
+    first_schedule = models.ForeignKey(
+        'routes.BusSchedule',
+        on_delete=models.PROTECT,
+        related_name='transfer_bookings_first',
+    )
+
+    first_source_stop = models.ForeignKey(
+        'routes.RouteStop',
+        on_delete=models.PROTECT,
+        related_name='transfer_bookings_first_source',
+    )
+
+    first_destination_stop = models.ForeignKey(
+        'routes.RouteStop',
+        on_delete=models.PROTECT,
+        related_name='transfer_bookings_first_destination',
+    )
+
+    first_journey_date = models.DateField()
+    first_fare_per_passenger = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+    )
+    first_seat_numbers = models.JSONField(default=list, blank=True)
+
+    # Second bus leg
+    second_schedule = models.ForeignKey(
+        'routes.BusSchedule',
+        on_delete=models.PROTECT,
+        related_name='transfer_bookings_second',
+    )
+
+    second_source_stop = models.ForeignKey(
+        'routes.RouteStop',
+        on_delete=models.PROTECT,
+        related_name='transfer_bookings_second_source',
+    )
+
+    second_destination_stop = models.ForeignKey(
+        'routes.RouteStop',
+        on_delete=models.PROTECT,
+        related_name='transfer_bookings_second_destination',
+    )
+
+    second_journey_date = models.DateField()
+    second_fare_per_passenger = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+    )
+    second_seat_numbers = models.JSONField(default=list, blank=True)
+
+    # Shared booking information
+    passenger_count = models.PositiveSmallIntegerField(default=1)
+
+    total_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='CREATED',
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return (
+            f"Transfer booking #{self.pk} - "
+            f"{self.passenger}"
+        )
 
 class Notification(models.Model):
 
