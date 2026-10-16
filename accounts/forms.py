@@ -79,6 +79,16 @@ class RegisterForm(UserCreationForm):
             'placeholder': 'Confirm your password'
         })
 
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip()
+
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(
+                'An account with this email address already exists.'
+            )
+
+        return email
+
 class UserProfileForm(forms.ModelForm):
 
     class Meta:
