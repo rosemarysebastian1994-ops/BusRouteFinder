@@ -203,6 +203,21 @@
                     </p>
 
 
+                    <div class="ticket-detail">
+                        <strong>Seat Number(s):</strong>
+
+                        {% if ticket.seat_numbers %}
+                            {% for seat in ticket.seat_numbers %}
+                                <span class="badge badge-info mr-1">
+                                    {{ seat }}
+                                </span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-muted">Not assigned</span>
+                        {% endif %}
+                    </div>
+
+
                     <hr>
 
 

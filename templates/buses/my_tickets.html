@@ -167,19 +167,6 @@
 
                                                 {% else %}
 
-                                                    {% if payment.status == 'CREATED' %}
-                                                        <span class="badge badge-warning p-2 mb-3">
-                                                            Payment Pending
-                                                        </span>
-                                                    {% elif payment.status == 'FAILED' %}
-                                                        <span class="badge badge-danger p-2 mb-3">
-                                                            Payment Failed
-                                                        </span>
-                                                    {% endif %}
-
-                                                    <br>
-
-
                                                     <a href="{% url 'buses:payment_page' payment.id %}"
                                                        class="btn btn-primary">
                                                         Complete Payment

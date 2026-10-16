@@ -52,6 +52,19 @@
                                         </p>
 
                                         <p>
+                                            <strong>Seat Number(s):</strong>
+                                            {% if transfer_booking.first_seat_numbers %}
+                                                {% for seat in transfer_booking.first_seat_numbers %}
+                                                    <span class="badge badge-info mr-1">
+                                                        {{ seat }}
+                                                    </span>
+                                                {% endfor %}
+                                            {% else %}
+                                                <span class="text-muted">Not assigned</span>
+                                            {% endif %}
+                                        </p>
+
+                                        <p>
                                             <strong>Journey date:</strong>
                                             {{ transfer_booking.first_journey_date|date:"d M Y" }}
                                         </p>
@@ -112,6 +125,19 @@
                                         <p>
                                             <strong>To:</strong>
                                             {{ transfer_booking.second_destination_stop.stop.name }}
+                                        </p>
+
+                                        <p>
+                                            <strong>Seat Number(s):</strong>
+                                            {% if transfer_booking.second_seat_numbers %}
+                                                {% for seat in transfer_booking.second_seat_numbers %}
+                                                    <span class="badge badge-info mr-1">
+                                                        {{ seat }}
+                                                    </span>
+                                                {% endfor %}
+                                            {% else %}
+                                                <span class="text-muted">Not assigned</span>
+                                            {% endif %}
                                         </p>
 
                                         <p>
@@ -206,6 +232,21 @@
                                     <strong>Passengers:</strong>
                                     {{ payment.passenger_count }}
                                 </p>
+
+
+                                <p>
+                                    <strong>Seat Number(s):</strong>
+                                    {% if payment.seat_numbers %}
+                                        {% for seat in payment.seat_numbers %}
+                                            <span class="badge badge-info mr-1">
+                                                {{ seat }}
+                                            </span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="text-muted">Not assigned</span>
+                                    {% endif %}
+                                </p>
+
 
                                 <p>
                                     <strong>Fare per passenger:</strong>
