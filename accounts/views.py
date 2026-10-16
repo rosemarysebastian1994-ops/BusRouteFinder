@@ -8,6 +8,12 @@ from .forms import RegisterForm, UserProfileForm, ProfileForm
 from .models import Profile, FavouriteRoute, FavouriteStop
 from routes.models import Route, Stop
 
+from django.contrib.auth.views import (
+    PasswordChangeView,
+    PasswordChangeDoneView,
+)
+from django.urls import reverse_lazy
+
 
 def register(request):
 
