@@ -3925,7 +3925,7 @@ def verify_payment(request):
     with transaction.atomic():
 
         payment = get_object_or_404(
-            Payment.objects.select_for_update().select_related(
+            Payment.objects.select_for_update(of=("self",)).select_related(
                 'transfer_booking',
                 'ticket',
                 'schedule',
