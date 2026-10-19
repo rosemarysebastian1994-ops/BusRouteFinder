@@ -31,6 +31,16 @@
     <link rel="stylesheet" href="{% static 'css/flaticon.css' %}">
     <link rel="stylesheet" href="{% static 'css/icomoon.css' %}">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+      <style>
+          .navbar-profile-picture {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                object-fit: cover;
+                vertical-align: middle;
+                display: inline-block;
+            }
+      </style>
   </head>
   <body>
 <nav class="navbar navbar-expand-lg navbar-dark ftco_navbar bg-dark ftco-navbar-dark" id="ftco-navbar">
@@ -179,39 +189,46 @@
 
                 {% endif %}
 
-                    <a href="{% url 'accounts:profile' %}"
-                       class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                <a href="{% url 'accounts:profile' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                    {% if user.profile.profile_picture %}
+                        <img
+                            src="{{ user.profile.profile_picture.url }}"
+                            alt="Profile"
+                            class="navbar-profile-picture me-1"
+                        >
+                    {% else %}
                         <i class="bi bi-person-circle me-1"></i>
-                        Profile
-                    </a>
+                    {% endif %}
+                    Profile
+                </a>
+                <a href="{% url 'accounts:logout' %}"
+                   class="nav-link">
+                    <i class="bi bi-box-arrow-right me-1"></i>
+                    Logout
+                </a>
 
-    <a href="{% url 'accounts:logout' %}"
-       class="nav-link">
-        <i class="bi bi-box-arrow-right me-1"></i>
-        Logout
-    </a>
+            {% else %}
 
-{% else %}
+                <a
+                    href="{% url 'accounts:login' %}"
+                    class="nav-link">
 
-    <a
-        href="{% url 'accounts:login' %}"
-        class="nav-link">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>
+                    Login
 
-        <i class="bi bi-box-arrow-in-right me-1"></i>
-        Login
+                </a>
 
-    </a>
+                <a
+                    href="{% url 'accounts:register' %}"
+                    class="nav-link">
 
-    <a
-        href="{% url 'accounts:register' %}"
-        class="nav-link">
+                    <i class="bi bi-person-plus me-1"></i>
+                    Register
 
-        <i class="bi bi-person-plus me-1"></i>
-        Register
+                </a>
 
-    </a>
-
-{% endif %}
+            {% endif %}
 
         </div>
 
