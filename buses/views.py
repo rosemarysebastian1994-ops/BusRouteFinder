@@ -3744,6 +3744,12 @@ def download_ticket(request, ticket_id):
 @login_required
 @require_POST
 def verify_payment(request):
+    logger.error(
+        "VERIFY_PAYMENT VIEW ENTERED: method=%s path=%s",
+        request.method,
+        request.path,
+    )
+
     logger.info(
         "PAYMENT VERIFY: Request received. Method=%s",
         request.method
@@ -3848,7 +3854,7 @@ def verify_payment(request):
     logger.info(
         "PAYMENT VERIFY: Razorpay signature verification succeeded."
     )
-    
+
     try:
         gateway_payment = client.payment.fetch(payment_id)
 
