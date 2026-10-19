@@ -218,3 +218,21 @@ RAZORPAY_KEY_SECRET = os.environ.get(
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'level': 'DEBUG',
+        },
+    },
+    'loggers': {
+        'buses': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}

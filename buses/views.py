@@ -25,6 +25,9 @@ from django.contrib import messages
 from django.conf import settings
 from django.db import transaction
 import traceback
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .forms import TicketBookingForm
 
@@ -3741,6 +3744,15 @@ def download_ticket(request, ticket_id):
 @login_required
 @require_POST
 def verify_payment(request):
+    logger.info(
+        "PAYMENT VERIFY: Request received. Method=%s",
+        request.method
+    )
+
+    logger.debug(
+        "PAYMENT VERIFY: POST field names=%s",
+        list(request.POST.keys())
+    )
 
     if not request.user.groups.filter(
         name='Passengers'
@@ -3757,6 +3769,16 @@ def verify_payment(request):
     order_id = request.POST.get('razorpay_order_id')
     signature = request.POST.get('razorpay_signature')
 
+    logger.info(
+        "PAYMENT VERIFY: Fields received. "
+        "payment_id_present=%s, "
+        "order_id_present=%s, "
+        "signature_present=%s",
+        bool(payment_id),
+        bool(order_id),
+        bool(signature),
+    )
+
     if not all([payment_id, order_id, signature]):
         return JsonResponse(
             {
@@ -3765,6 +3787,10 @@ def verify_payment(request):
             },
             status=400
         )
+
+    logger.debug(
+        "PAYMENT VERIFY: Looking up payment record."
+    )
 
     payment = get_object_or_404(
         Payment.objects.select_related(
@@ -3778,12 +3804,28 @@ def verify_payment(request):
         passenger=request.user
     )
 
+    logger.info(
+        "PAYMENT VERIFY: Payment record found. "
+        "payment_record_id=%s, status=%s",
+        payment.pk,
+        payment.status,
+    )
+
+    logger.info(
+        "PAYMENT VERIFY: Order ID matches=%s",
+        payment.razorpay_order_id == order_id,
+    )
+
     # VERIFY RAZORPAY SIGNATURE
     client = razorpay.Client(
         auth=(
             settings.RAZORPAY_KEY_ID,
             settings.RAZORPAY_KEY_SECRET,
         )
+    )
+
+    logger.info(
+        "PAYMENT VERIFY: Starting Razorpay signature verification."
     )
 
     try:
@@ -3803,6 +3845,10 @@ def verify_payment(request):
             status=400
         )
 
+    logger.info(
+        "PAYMENT VERIFY: Razorpay signature verification succeeded."
+    )
+    
     try:
         gateway_payment = client.payment.fetch(payment_id)
 
