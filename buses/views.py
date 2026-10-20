@@ -27,6 +27,12 @@ from django.db import transaction
 import traceback
 import logging
 
+import base64
+from io import BytesIO
+
+import qrcode
+from django.core import signing
+
 logger = logging.getLogger(__name__)
 
 from .forms import TicketBookingForm
@@ -83,6 +89,120 @@ def bus_timings(request, bus_id):
             'schedules': schedules,
         }
     )
+
+
+@login_required
+def driver_scan_ticket(request):
+    if not request.user.groups.filter(name="Drivers").exists():
+        messages.error(request, "Driver access required.")
+        return redirect("core:home")
+
+    bus = get_object_or_404(Bus, driver=request.user)
+
+    return render(
+        request,
+        "buses/driver_scan_ticket.html",
+        {"bus": bus},
+    )
+
+
+@login_required
+@require_POST
+def scan_ticket_qr(request):
+    if not request.user.groups.filter(name="Drivers").exists():
+        return JsonResponse(
+            {"success": False, "message": "Driver access required."},
+            status=403,
+        )
+
+    bus = get_object_or_404(Bus, driver=request.user)
+
+    try:
+        data = json.loads(request.body)
+        token = data.get("token", "")
+
+        if not isinstance(token, str) or not token:
+            raise ValueError("Missing QR token.")
+
+        payload = signing.loads(
+            token,
+            salt="buses.ticket-qr",
+        )
+        ticket_id = payload.get("ticket_id")
+
+        if not isinstance(ticket_id, int):
+            raise ValueError("Invalid ticket reference.")
+
+    except (
+        ValueError,
+        TypeError,
+        json.JSONDecodeError,
+        signing.BadSignature,
+    ):
+        return JsonResponse(
+            {"success": False, "message": "Invalid QR code."},
+            status=400,
+        )
+
+    ticket = get_object_or_404(
+        Ticket.objects.select_related(
+            "schedule__bus",
+            "schedule__route",
+            "source_stop__stop",
+            "destination_stop__stop",
+            "passenger",
+        ),
+        pk=ticket_id,
+    )
+
+    if ticket.schedule.bus_id != bus.id:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "This ticket is not for your assigned bus.",
+            },
+            status=403,
+        )
+
+    if ticket.status != "CONFIRMED":
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "This ticket is not confirmed.",
+            },
+            status=400,
+        )
+
+    if ticket.journey_date != timezone.localdate():
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "This ticket is not valid for today's journey.",
+            },
+            status=400,
+        )
+
+    if ticket.passenger_boarded_at:
+        return JsonResponse({
+            "success": True,
+            "already_boarded": True,
+            "message": "This ticket has already been scanned.",
+            "ticket_number": ticket.ticket_number,
+        })
+
+    ticket.passenger_boarded_at = timezone.now()
+    ticket.save(update_fields=["passenger_boarded_at"])
+
+    return JsonResponse({
+        "success": True,
+        "already_boarded": False,
+        "message": "Ticket verified. Boarding confirmed.",
+        "ticket_number": ticket.ticket_number,
+        "passenger_count": ticket.passenger_count,
+        "source": ticket.source_stop.stop.name,
+        "destination": ticket.destination_stop.stop.name,
+    })
+
 
 @login_required
 def driver_tracking(request):
@@ -3181,28 +3301,47 @@ def ticket_payment(request, ticket_id):
 
 @login_required
 def ticket_detail(request, ticket_id):
-
     complete_past_tickets()
 
     ticket = get_object_or_404(
         Ticket.objects.select_related(
-            'schedule',
-            'schedule__route',
-            'schedule__bus',
-            'source_stop__stop',
-            'destination_stop__stop',
-            'payment',
+            "schedule",
+            "schedule__route",
+            "schedule__bus",
+            "source_stop__stop",
+            "destination_stop__stop",
+            "payment",
         ),
         id=ticket_id,
-        passenger=request.user
+        passenger=request.user,
     )
+
+    qr_code_data = None
+
+    if ticket.status == "CONFIRMED":
+        # Sign the ticket ID so it cannot be changed
+        # without invalidating the QR code.
+        qr_token = signing.dumps(
+            {"ticket_id": ticket.pk},
+            salt="buses.ticket-qr",
+            compress=True,
+        )
+
+        qr_image = qrcode.make(qr_token)
+        image_buffer = BytesIO()
+        qr_image.save(image_buffer, format="PNG")
+
+        qr_code_data = base64.b64encode(
+            image_buffer.getvalue()
+        ).decode("ascii")
 
     return render(
         request,
-        'buses/ticket_detail.html',
+        "buses/ticket_detail.html",
         {
-            'ticket': ticket,
-        }
+            "ticket": ticket,
+            "qr_code_data": qr_code_data,
+        },
     )
 
 @login_required

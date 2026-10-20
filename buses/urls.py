@@ -4,6 +4,19 @@ from . import views
 app_name = 'buses'
 
 urlpatterns = [
+
+    path(
+        "driver/scan-ticket/",
+        views.driver_scan_ticket,
+        name="driver_scan_ticket",
+    ),
+
+    path(
+        "driver/scan-ticket/verify/",
+        views.scan_ticket_qr,
+        name="scan_ticket_qr",
+    ),
+
     path(
         'driver/tracking/',
         views.driver_tracking,

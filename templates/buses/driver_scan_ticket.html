@@ -1,0 +1,175 @@
+
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="ftco-section">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body p-4">
+                        <h3>Scan Passenger Ticket</h3>
+
+                        <p>
+                            Assigned bus:
+                            <strong>
+                                {{ bus.bus_number }} - {{ bus.bus_name }}
+                            </strong>
+                        </p>
+
+                        <p class="text-muted">
+                            Scan a confirmed ticket for today's journey.
+                        </p>
+
+                        {% csrf_token %}
+
+                        <div id="qr-reader" style="width: 100%;"></div>
+
+                        <div
+                            id="scan-result"
+                            class="alert alert-info mt-3"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            Allow camera access to start scanning.
+                        </div>
+
+                        <button
+                            type="button"
+                            id="scan-again"
+                            class="btn btn-primary"
+                            hidden
+                        >
+                            Scan Another Ticket
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const result = document.getElementById("scan-result");
+    const scanAgainButton = document.getElementById("scan-again");
+    const csrfToken = document.querySelector(
+        '[name="csrfmiddlewaretoken"]'
+    ).value;
+
+    let scanner = null;
+    let processing = false;
+
+    async function startScanner() {
+        processing = false;
+        scanAgainButton.hidden = true;
+        result.className = "alert alert-info mt-3";
+        result.textContent = "Point the camera at the ticket QR code.";
+
+        if (scanner) {
+            try {
+                await scanner.clear();
+            } catch (error) {
+                // Scanner may not have started yet.
+            }
+        }
+
+        if (!window.isSecureContext) {
+            result.className = "alert alert-danger mt-3";
+            result.textContent =
+                "Camera access requires HTTPS or localhost.";
+            return;
+        }
+
+        if (!navigator.mediaDevices ||
+            !navigator.mediaDevices.getUserMedia) {
+            result.className = "alert alert-danger mt-3";
+            result.textContent =
+                "This browser does not support camera access.";
+            return;
+        }
+
+        scanner = new Html5QrcodeScanner(
+            "qr-reader",
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 }
+            },
+            false
+        );
+
+        scanner.render(
+            onScanSuccess,
+            function (errorMessage) {
+                console.debug("QR scan:", errorMessage);
+            }
+        );
+    }
+
+    async function onScanSuccess(decodedText) {
+        if (processing) return;
+        processing = true;
+
+        result.className = "alert alert-info mt-3";
+        result.textContent = "Verifying ticket...";
+
+        try {
+            const response = await fetch(
+                "{% url 'buses:scan_ticket_qr' %}",
+                {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrfToken
+                    },
+                    body: JSON.stringify({
+                        token: decodedText
+                    })
+                }
+            );
+
+            const data = await response.json();
+
+            result.className =
+                "alert mt-3 " +
+                (data.success ? "alert-success" : "alert-danger");
+
+            let message = data.message || "Unable to verify ticket.";
+
+            if (data.success && data.ticket_number) {
+                message += "\nTicket: " + data.ticket_number;
+            }
+
+            if (data.success && data.passenger_count) {
+                message += "\nPassengers: " + data.passenger_count;
+                message += "\nFrom: " + data.source;
+                message += "\nTo: " + data.destination;
+            }
+
+            result.style.whiteSpace = "pre-line";
+            result.textContent = message;
+
+            if (scanner) {
+                await scanner.clear();
+            }
+
+            scanAgainButton.hidden = false;
+
+        } catch (error) {
+            result.className = "alert alert-danger mt-3";
+            result.textContent =
+                "Could not verify the ticket. Check your connection and try again.";
+
+            processing = false;
+        }
+    }
+
+    scanAgainButton.addEventListener("click", startScanner);
+
+    startScanner();
+});
+</script>
+{% endblock %}
