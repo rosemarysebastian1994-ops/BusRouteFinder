@@ -3506,6 +3506,138 @@ def journey_status(request, ticket_id):
         "updated_at": location.updated_at.isoformat(),
     })
 
+
+@login_required
+@require_POST
+def confirm_boarding(request, ticket_id):
+    if not request.user.groups.filter(
+        name="Passengers"
+    ).exists():
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Passenger access required.",
+            },
+            status=403,
+        )
+
+    ticket = get_object_or_404(
+        Ticket.objects.select_related(
+            "schedule__bus",
+            "schedule__route",
+            "source_stop",
+        ),
+        pk=ticket_id,
+        passenger=request.user,
+    )
+
+    if ticket.status != "CONFIRMED":
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Only confirmed tickets can confirm boarding.",
+            },
+            status=400,
+        )
+
+    if ticket.passenger_boarded_at:
+        return JsonResponse({
+            "success": True,
+            "message": "Your boarding has already been confirmed.",
+            "boarded_at": ticket.passenger_boarded_at.isoformat(),
+        })
+
+    bus = ticket.schedule.bus
+
+    if bus is None:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "No bus is assigned to this ticket.",
+            },
+            status=400,
+        )
+
+    location = BusLocation.objects.filter(
+        bus=bus,
+        is_tracking=True,
+    ).select_related(
+        "current_route_stop",
+        "last_departure_stop",
+    ).first()
+
+    if location is None:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Live bus tracking is unavailable. Please try again later.",
+            },
+            status=400,
+        )
+
+    now = timezone.now()
+
+    if location.updated_at < now - timedelta(seconds=60):
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "The bus location is outdated. Please try again when tracking is active.",
+            },
+            status=400,
+        )
+
+    boarding_stop = ticket.source_stop
+
+    if boarding_stop.route_id != ticket.schedule.route_id:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "The boarding stop does not match this ticket's route.",
+            },
+            status=400,
+        )
+
+    current_stop = location.current_route_stop
+    last_departure = location.last_departure_stop
+
+    bus_at_boarding_stop = (
+        current_stop is not None
+        and current_stop.route_id == ticket.schedule.route_id
+        and current_stop.stop_id == boarding_stop.stop_id
+        and location.stop_status == "ARRIVED"
+    )
+
+    bus_departed_boarding_stop = (
+        last_departure is not None
+        and last_departure.route_id == ticket.schedule.route_id
+        and last_departure.stop_id == boarding_stop.stop_id
+    )
+
+    if not (
+        bus_at_boarding_stop
+        or bus_departed_boarding_stop
+    ):
+        return JsonResponse(
+            {
+                "success": False,
+                "message": (
+                    "The bus has not been confirmed at your boarding stop "
+                    "or departing from it. Boarding confirmation is unavailable."
+                ),
+            },
+            status=400,
+        )
+
+    ticket.passenger_boarded_at = now
+    ticket.save(update_fields=["passenger_boarded_at"])
+
+    return JsonResponse({
+        "success": True,
+        "message": "Boarding confirmed. Have a safe journey!",
+        "boarded_at": now.isoformat(),
+    })
+
+
 @login_required
 @require_POST
 def cancel_ticket(request, ticket_id):

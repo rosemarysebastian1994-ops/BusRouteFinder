@@ -72,6 +72,38 @@
         </div>
     </div>
 
+    {% if ticket.status == "CONFIRMED" and not ticket.passenger_boarded_at %}
+    <div class="card mb-4" id="boarding-card">
+        <div class="card-body">
+            <h5>Have you boarded the bus?</h5>
+            <p>
+                Confirm only after you have physically boarded
+                your assigned bus.
+            </p>
+
+            <button
+                type="button"
+                id="confirm-boarding-btn"
+                class="btn btn-success">
+                Confirm Boarding
+            </button>
+
+            <div
+                id="boarding-result"
+                class="mt-3"
+                role="status"
+                aria-live="polite">
+            </div>
+        </div>
+    </div>
+    {% elif ticket.passenger_boarded_at %}
+    <div class="alert alert-success mb-4" role="status">
+        <strong>Boarding confirmed.</strong>
+        You confirmed boarding at
+        {{ ticket.passenger_boarded_at|date:"d M Y, h:i A" }}.
+    </div>
+    {% endif %}
+
     <div class="card">
         <div class="card-header">
             <h5 class="mb-0">Your Stops</h5>
@@ -172,4 +204,65 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 {% endif %}
+
+{% if ticket.status == "CONFIRMED" and not ticket.passenger_boarded_at %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const button = document.getElementById("confirm-boarding-btn");
+    const result = document.getElementById("boarding-result");
+
+    if (!button || !result) return;
+
+    button.addEventListener("click", async function () {
+        if (!confirm("Have you physically boarded this bus?")) {
+            return;
+        }
+
+        button.disabled = true;
+        result.textContent = "Confirming boarding...";
+
+        try {
+            const response = await fetch(
+                "{% url 'buses:confirm_boarding' ticket.id %}",
+                {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": "{{ csrf_token }}",
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    credentials: "same-origin"
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(
+                    data.message || "Unable to confirm boarding."
+                );
+            }
+
+            result.textContent = data.message;
+
+            const card = document.getElementById("boarding-card");
+            if (card) card.remove();
+
+            const confirmation = document.createElement("div");
+            confirmation.className = "alert alert-success mb-4";
+            confirmation.setAttribute("role", "status");
+            confirmation.textContent =
+                "Boarding confirmed at " +
+                new Date(data.boarded_at).toLocaleString();
+
+            document.querySelector(".container").prepend(confirmation);
+
+        } catch (error) {
+            result.textContent = error.message;
+            button.disabled = false;
+        }
+    });
+});
+</script>
+{% endif %}
+
 {% endblock %}

@@ -384,30 +384,34 @@ def notify_passengers_of_departure(
     route_stop,
     departure_time,
 ):
+    """Notify passengers when their scheduled bus departs
+    from their boarding stop.
     """
-    Notify passengers whose confirmed journey starts
-    from the stop the bus has just departed.
-    """
-
-    today = timezone.localtime(
-        departure_time
-    ).date()
+    today = timezone.localtime(departure_time).date()
 
     tickets = Ticket.objects.filter(
         schedule__route=route,
+        schedule__bus=bus,
         source_stop=route_stop,
         journey_date=today,
-        status='CONFIRMED',
+        status="CONFIRMED",
     ).select_related(
-        'passenger',
-        'destination_stop__stop',
+        "schedule",
+        "passenger",
+        "destination_stop__stop",
     )
 
     for ticket in tickets:
 
+        if not is_scheduled_departure_due(
+            ticket,
+            departure_time,
+        ):
+            continue
+
         already_notified = Notification.objects.filter(
             ticket=ticket,
-            notification_type='DEPARTURE',
+            notification_type="DEPARTURE",
         ).exists()
 
         if already_notified:
@@ -415,15 +419,15 @@ def notify_passengers_of_departure(
 
         create_notification(
             passenger=ticket.passenger,
-            title='Bus Departed',
+            title="Bus Departed",
             message=(
-                f'Your bus {bus.bus_number} has departed '
-                f'from {route_stop.stop.name}. '
-                f'Your journey to '
-                f'{ticket.destination_stop.stop.name} '
-                f'has started.'
+                f"Your bus {bus.bus_number} has departed "
+                f"from {route_stop.stop.name}. "
+                f"Your journey to "
+                f"{ticket.destination_stop.stop.name} "
+                f"has started."
             ),
-            notification_type='DEPARTURE',
+            notification_type="DEPARTURE",
             ticket=ticket,
         )
 
@@ -474,36 +478,64 @@ def notify_passengers_of_approaching(
             ticket=ticket,
         )
 
+def is_scheduled_departure_due(ticket, event_time):
+    """
+    Return False if the bus reaches or leaves the boarding stop
+    more than 15 minutes before this ticket's scheduled departure.
+
+    Late departures are allowed.
+    """
+    scheduled_departure = timezone.make_aware(
+        datetime.combine(
+            ticket.journey_date,
+            ticket.schedule.departure_time,
+        ),
+        timezone.get_current_timezone(),
+    )
+
+    event_time = timezone.localtime(event_time)
+
+    earliest_notification_time = (
+        scheduled_departure - timedelta(minutes=15)
+    )
+
+    return event_time >= earliest_notification_time
+
+
 def notify_passengers_of_arrival(
     bus,
     route,
     route_stop,
     arrival_time,
 ):
+    """Notify passengers when their scheduled bus arrives
+    at their boarding stop near departure time.
     """
-    Notify passengers when their bus arrives
-    at their source stop.
-    """
-
-    today = timezone.localtime(
-        arrival_time
-    ).date()
+    today = timezone.localtime(arrival_time).date()
 
     tickets = Ticket.objects.filter(
         schedule__route=route,
+        schedule__bus=bus,
         source_stop=route_stop,
         journey_date=today,
-        status='CONFIRMED',
+        status="CONFIRMED",
     ).select_related(
-        'passenger',
-        'destination_stop__stop',
+        "schedule",
+        "passenger",
+        "destination_stop__stop",
     )
 
     for ticket in tickets:
 
+        if not is_scheduled_departure_due(
+            ticket,
+            arrival_time,
+        ):
+            continue
+
         already_notified = Notification.objects.filter(
             ticket=ticket,
-            notification_type='ARRIVED',
+            notification_type="ARRIVED",
         ).exists()
 
         if already_notified:
@@ -511,13 +543,14 @@ def notify_passengers_of_arrival(
 
         create_notification(
             passenger=ticket.passenger,
-            title='Bus Arrived',
+            title="Bus Arrived",
             message=(
-                f'Your bus {bus.bus_number} has arrived '
-                f'at {route_stop.stop.name}. '
-                f'Please board the bus.'
+                f"Your bus {bus.bus_number} has arrived "
+                f"at {route_stop.stop.name}. "
+                f"Please board the bus for your journey to "
+                f"{ticket.destination_stop.stop.name}."
             ),
-            notification_type='ARRIVED',
+            notification_type="ARRIVED",
             ticket=ticket,
         )
 

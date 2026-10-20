@@ -269,6 +269,12 @@ class Ticket(models.Model):
         decimal_places=2
     )
 
+    passenger_boarded_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Time when the passenger confirmed boarding."
+    )
+
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,

@@ -125,6 +125,12 @@ urlpatterns = [
     ),
 
     path(
+        "tickets/<int:ticket_id>/confirm-boarding/",
+        views.confirm_boarding,
+        name="confirm_boarding",
+    ),
+
+    path(
         'notifications/',
         views.notifications,
         name='notifications'
