@@ -205,6 +205,8 @@ def update_bus_location(request):
         location.tracking_session_id = uuid.uuid4()
 
         location.current_route_stop = None
+        location.last_departure_stop = None
+        location.last_departure_at = None
 
         location.stop_status = 'TRAVELLING'
 
@@ -3286,6 +3288,223 @@ def my_tickets(request):
             'pending_payments': pending_payments,
         }
     )
+
+@login_required
+def my_journey(request, ticket_id):
+    if not request.user.groups.filter(
+        name="Passengers"
+    ).exists():
+        messages.error(
+            request,
+            "Only passengers can track a journey."
+        )
+        return redirect("core:home")
+
+    ticket = get_object_or_404(
+        Ticket.objects.select_related(
+            "schedule__bus",
+            "schedule__route",
+            "source_stop__stop",
+            "destination_stop__stop",
+        ),
+        pk=ticket_id,
+        passenger=request.user,
+    )
+
+    if ticket.status not in ("CONFIRMED", "COMPLETED"):
+        messages.error(
+            request,
+            "Only confirmed journeys can be tracked."
+        )
+        return redirect("buses:my_tickets")
+
+    route_stops = list(
+        ticket.schedule.route.route_stops
+        .filter(
+            stop_order__gte=ticket.source_stop.stop_order,
+            stop_order__lte=ticket.destination_stop.stop_order,
+        )
+        .select_related("stop")
+        .order_by("stop_order")
+    )
+
+    return render(
+        request,
+        "buses/my_journey.html",
+        {
+            "ticket": ticket,
+            "route_stops": route_stops,
+        },
+    )
+
+@login_required
+def journey_status(request, ticket_id):
+    if not request.user.groups.filter(
+        name="Passengers"
+    ).exists():
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Passenger access required.",
+            },
+            status=403,
+        )
+
+    ticket = get_object_or_404(
+        Ticket.objects.select_related(
+            "schedule__bus",
+            "schedule__route",
+            "source_stop__stop",
+            "destination_stop__stop",
+        ),
+        pk=ticket_id,
+        passenger=request.user,
+    )
+
+    bus_id = ticket.schedule.bus_id
+
+    if not bus_id:
+        return JsonResponse({
+            "success": True,
+            "tracking_available": False,
+            "message": "No bus is assigned to this schedule.",
+        })
+
+    location = BusLocation.objects.filter(
+        bus_id=bus_id
+    ).select_related(
+        "current_route_stop__stop",
+        "last_departure_stop__stop",
+    ).first()
+
+    if location is None:
+        return JsonResponse({
+            "success": True,
+            "tracking_available": False,
+            "message": "No bus location is available yet.",
+        })
+
+    now = timezone.now()
+    fresh = (
+        location.is_tracking
+        and location.updated_at >= now - timedelta(seconds=60)
+    )
+
+    # A location on a different route must not be used
+    # to report progress for this ticket.
+    current_route_stop = location.current_route_stop
+    route_matches = (
+        current_route_stop is not None
+        and current_route_stop.route_id == ticket.schedule.route_id
+    )
+
+    if not fresh or not route_matches:
+        return JsonResponse({
+            "success": True,
+            "tracking_available": False,
+            "message": (
+                "Live tracking is temporarily unavailable."
+            ),
+            "updated_at": location.updated_at.isoformat(),
+        })
+
+
+    target_stop = current_route_stop.stop.name
+    stop_status = location.stop_status
+
+    last_departure = location.last_departure_stop
+
+    boarding_order = ticket.source_stop.stop_order
+    destination_order = ticket.destination_stop.stop_order
+    current_order = current_route_stop.stop_order
+
+    # Verify that the recorded departure belongs to this route.
+    last_departure_order = None
+
+    if (
+        last_departure is not None
+        and last_departure.route_id == ticket.schedule.route_id
+    ):
+        last_departure_order = last_departure.stop_order
+
+    # The bus is at the boarding stop only when its current
+    # stop is the boarding stop and its status is ARRIVED.
+    at_boarding_stop = (
+        current_order == boarding_order
+        and stop_status == "ARRIVED"
+    )
+
+    approaching_boarding_stop = (
+        current_order == boarding_order
+        and stop_status == "TRAVELLING"
+    )
+
+    # The bus has departed the boarding stop if it has recorded
+    # a departure from that stop or a later stop, unless it is
+    # currently recorded as arrived at the boarding stop.
+    boarding_stop_passed = (
+        last_departure_order is not None
+        and last_departure_order >= boarding_order
+        and not at_boarding_stop
+    ) or current_order > boarding_order
+
+    # Reaching the destination means arriving at the exact
+    # destination stop, not a later stop on the route.
+    destination_reached = (
+        current_order == destination_order
+        and stop_status == "ARRIVED"
+    )
+
+    if stop_status == "ARRIVED":
+        message = f"Bus has arrived at {target_stop}."
+    elif stop_status == "DEPARTED":
+        message = f"Bus has departed from {target_stop}."
+    else:
+        message = f"Bus is travelling toward {target_stop}."
+
+    alert = None
+
+    if destination_reached:
+        alert = "The bus has reached your destination."
+
+    elif at_boarding_stop:
+        alert = "The bus is at your boarding stop. Board when safe."
+
+    elif approaching_boarding_stop:
+        alert = "The bus is approaching your boarding stop."
+
+    elif boarding_stop_passed:
+        alert = (
+            "The bus has departed your boarding stop. "
+            "If you have not boarded, you may have missed it."
+        )
+
+    elif current_order < boarding_order:
+        alert = "The bus has not reached your boarding stop yet."
+
+
+    return JsonResponse({
+        "success": True,
+        "tracking_available": True,
+        "bus_number": location.bus.bus_number,
+        "current_stop": (
+            last_departure.stop.name
+            if stop_status == "TRAVELLING"
+            and last_departure is not None
+            else target_stop
+        ),
+        "next_stop": (
+            target_stop
+            if stop_status == "TRAVELLING"
+            else None
+        ),
+        "stop_status": stop_status,
+        "message": message,
+        "alert": alert,
+        "destination_reached": destination_reached,
+        "speed": location.speed,
+        "updated_at": location.updated_at.isoformat(),
+    })
 
 @login_required
 @require_POST

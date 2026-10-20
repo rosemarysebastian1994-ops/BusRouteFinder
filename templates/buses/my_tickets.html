@@ -337,6 +337,16 @@
 
                                         </a>
 
+                                        {% if ticket.status == "CONFIRMED" %}
+                                            <a
+                                                href="{% url 'buses:my_journey' ticket.id %}"
+                                                class="btn btn-outline-primary btn-sm"
+                                            >
+                                                <i class="fas fa-route"></i>
+                                                Track My Journey
+                                            </a>
+                                        {% endif %}
+
                                     </div>
 
                                 </div>

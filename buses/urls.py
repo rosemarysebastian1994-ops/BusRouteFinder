@@ -113,6 +113,18 @@ urlpatterns = [
     ),
 
     path(
+        "tickets/<int:ticket_id>/journey/",
+        views.my_journey,
+        name="my_journey",
+    ),
+
+    path(
+        "tickets/<int:ticket_id>/journey-status/",
+        views.journey_status,
+        name="journey_status",
+    ),
+
+    path(
         'notifications/',
         views.notifications,
         name='notifications'

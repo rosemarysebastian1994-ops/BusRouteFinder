@@ -1,0 +1,175 @@
+ {% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>My Journey</h2>
+            <p class="text-muted mb-0">
+                Ticket: {{ ticket.ticket_number }}
+            </p>
+        </div>
+
+        <a href="{% url 'buses:my_tickets' %}"
+           class="btn btn-outline-secondary">
+            Back to My Tickets
+        </a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5>{{ ticket.schedule.route.route_name }}</h5>
+
+            <p>
+                <strong>From:</strong>
+                {{ ticket.source_stop.stop.name }}
+            </p>
+
+            <p>
+                <strong>To:</strong>
+                {{ ticket.destination_stop.stop.name }}
+            </p>
+
+            <p>
+                <strong>Journey date:</strong>
+                {{ ticket.journey_date }}
+            </p>
+
+            <p>
+                <strong>Bus:</strong>
+                {% if ticket.schedule.bus %}
+                    {{ ticket.schedule.bus.bus_number }}
+                    — {{ ticket.schedule.bus.bus_name }}
+                {% else %}
+                    Not assigned
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Journey Progress</h5>
+        </div>
+
+        <div class="card-body">
+            <div id="journey-status" role="status"
+                 aria-live="polite">
+                Checking bus tracking status...
+            </div>
+
+            <div id="journey-alert"
+                 class="alert alert-info mt-3"
+                 role="status"
+                 aria-live="polite"
+                 hidden>
+            </div>
+
+            <p class="small text-muted mt-3 mb-0">
+                Last updated:
+                <span id="journey-updated">Not available</span>
+            </p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Your Stops</h5>
+        </div>
+
+        <div class="card-body">
+            <ol class="list-group list-group-numbered">
+                {% for route_stop in route_stops %}
+                    <li class="list-group-item">
+                        {{ route_stop.stop.name }}
+
+                        {% if route_stop.id == ticket.source_stop_id %}
+                            <span class="badge badge-success">
+                                Boarding
+                            </span>
+                        {% endif %}
+
+                        {% if route_stop.id == ticket.destination_stop_id %}
+                            <span class="badge badge-primary">
+                                Destination
+                            </span>
+                        {% endif %}
+                    </li>
+                {% empty %}
+                    <li class="list-group-item">
+                        No route stops are available.
+                    </li>
+                {% endfor %}
+            </ol>
+        </div>
+    </div>
+</div>
+
+{% if ticket.status == "CONFIRMED" and ticket.schedule.bus %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const statusElement =
+        document.getElementById("journey-status");
+
+    const alertElement =
+        document.getElementById("journey-alert");
+
+    const updatedElement =
+        document.getElementById("journey-updated");
+
+    const statusUrl =
+        "{% url 'buses:journey_status' ticket.id %}";
+
+    let pollingTimer = null;
+
+    async function refreshJourneyStatus() {
+        try {
+            const response = await fetch(statusUrl, {
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(
+                    data.message || "Unable to load journey status."
+                );
+            }
+
+            statusElement.textContent = data.tracking_available
+                ? data.message
+                : data.message;
+
+            if (data.alert) {
+                alertElement.textContent = data.alert;
+                alertElement.hidden = false;
+            } else {
+                alertElement.hidden = true;
+                alertElement.textContent = "";
+            }
+
+            if (data.updated_at) {
+                updatedElement.textContent =
+                    new Date(data.updated_at).toLocaleString();
+            }
+
+            if (data.destination_reached && pollingTimer !== null) {
+                clearInterval(pollingTimer);
+                pollingTimer = null;
+            }
+
+        } catch (error) {
+            statusElement.textContent =
+                "Unable to refresh bus status. Please try again.";
+            console.error("Journey status error:", error);
+        }
+    }
+
+    refreshJourneyStatus();
+    pollingTimer = setInterval(refreshJourneyStatus, 15000);
+});
+</script>
+{% endif %}
+{% endblock %}
