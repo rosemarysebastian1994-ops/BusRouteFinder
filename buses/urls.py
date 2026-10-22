@@ -78,6 +78,12 @@ urlpatterns = [
     ),
 
     path(
+        "transfer/seat-selection/",
+        views.transfer_seat_selection,
+        name="transfer_seat_selection",
+    ),
+
+    path(
         'transfer-booking/',
         views.transfer_booking_checkout,
         name='transfer_booking_checkout'

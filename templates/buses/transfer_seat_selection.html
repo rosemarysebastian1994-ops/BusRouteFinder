@@ -1,0 +1,604 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+
+    <div class="mb-4">
+        <h2 class="mb-2">Select Your Seats</h2>
+        <p class="text-muted">
+            Choose seats for both buses. Select the same number of seats
+            on each leg as your passenger count.
+        </p>
+    </div>
+
+    <div class="alert alert-info">
+        <strong>Passengers:</strong> {{ passenger_count }}
+        <span class="ml-2">
+            Please select {{ passenger_count }} seat(s) on each bus.
+        </span>
+    </div>
+
+    <form method="post"
+          action="{% url 'buses:transfer_booking_checkout' %}"
+          id="transfer-seat-form">
+
+        {% csrf_token %}
+
+        <!-- Journey details -->
+        <input type="hidden"
+               name="first_schedule_id"
+               value="{{ first_schedule.id }}">
+
+        <input type="hidden"
+               name="second_schedule_id"
+               value="{{ second_schedule.id }}">
+
+        <input type="hidden"
+               name="source_stop_id"
+               value="{{ first_source.stop_id }}">
+
+        <input type="hidden"
+               name="transfer_stop_id"
+               value="{{ first_destination.stop_id }}">
+
+        <input type="hidden"
+               name="destination_stop_id"
+               value="{{ second_destination.stop_id }}">
+
+        <input type="hidden"
+               name="first_journey_date"
+               value="{{ first_journey_date|date:'Y-m-d' }}">
+
+        <input type="hidden"
+               name="second_journey_date"
+               value="{{ second_journey_date|date:'Y-m-d' }}">
+
+        <input type="hidden"
+               name="passenger_count"
+               value="{{ passenger_count }}">
+
+        <!-- Selected seats are submitted as JSON integer lists -->
+        <input type="hidden"
+               name="first_seat_numbers"
+               id="first-seat-numbers"
+               value="[]">
+
+        <input type="hidden"
+               name="second_seat_numbers"
+               id="second-seat-numbers"
+               value="[]">
+
+        <!-- FIRST BUS -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-1">First Bus</h4>
+                <small>
+                    {{ first_source.stop.name }}
+                    &rarr;
+                    {{ first_destination.stop.name }}
+                </small>
+            </div>
+
+            <div class="card-body">
+
+                <h5>
+                    {{ first_schedule.bus.bus_name }}
+                    ({{ first_schedule.bus.bus_number }})
+                </h5>
+
+                <p class="text-muted mb-3">
+                    Journey date:
+                    {{ first_journey_date|date:'d M Y' }}
+                </p>
+
+                <div class="seat-legend mb-4">
+                    <span>
+                        <span class="legend-box available"></span>
+                        Available
+                    </span>
+                    <span>
+                        <span class="legend-box selected"></span>
+                        Selected
+                    </span>
+                    <span>
+                        <span class="legend-box booked"></span>
+                        Booked
+                    </span>
+                </div>
+
+                <div class="bus-front text-center mb-3">
+                    <span class="badge badge-secondary p-2">
+                        <i class="fas fa-steering-wheel"></i>
+                        FRONT / DRIVER
+                    </span>
+                </div>
+
+                <div id="first-seat-map"
+                     class="seat-map"
+                     aria-label="First bus seat map">
+                    <p class="text-muted">Loading seat availability...</p>
+                </div>
+
+                <p class="mt-3 mb-0">
+                    Selected seats:
+                    <strong id="first-selected-display">None</strong>
+                </p>
+
+                <div id="first-seat-error"
+                     class="text-danger mt-2"
+                     role="alert"></div>
+            </div>
+        </div>
+
+        <!-- SECOND BUS -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-1">Second Bus</h4>
+                <small>
+                    {{ second_source.stop.name }}
+                    &rarr;
+                    {{ second_destination.stop.name }}
+                </small>
+            </div>
+
+            <div class="card-body">
+
+                <h5>
+                    {{ second_schedule.bus.bus_name }}
+                    ({{ second_schedule.bus.bus_number }})
+                </h5>
+
+                <p class="text-muted mb-3">
+                    Journey date:
+                    {{ second_journey_date|date:'d M Y' }}
+                </p>
+
+                <div class="seat-legend mb-4">
+                    <span>
+                        <span class="legend-box available"></span>
+                        Available
+                    </span>
+                    <span>
+                        <span class="legend-box selected"></span>
+                        Selected
+                    </span>
+                    <span>
+                        <span class="legend-box booked"></span>
+                        Booked
+                    </span>
+                </div>
+
+                <div class="bus-front text-center mb-3">
+                    <span class="badge badge-secondary p-2">
+                        FRONT / DRIVER
+                    </span>
+                </div>
+
+                <div id="second-seat-map"
+                     class="seat-map"
+                     aria-label="Second bus seat map">
+                    <p class="text-muted">Loading seat availability...</p>
+                </div>
+
+                <p class="mt-3 mb-0">
+                    Selected seats:
+                    <strong id="second-selected-display">None</strong>
+                </p>
+
+                <div id="second-seat-error"
+                     class="text-danger mt-2"
+                     role="alert"></div>
+            </div>
+        </div>
+
+        <!-- SUMMARY -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5>Seat Selection Summary</h5>
+
+                <p class="mb-1">
+                    First bus:
+                    <strong id="first-seat-count">0</strong>
+                    / {{ passenger_count }} seats selected
+                </p>
+
+                <p class="mb-0">
+                    Second bus:
+                    <strong id="second-seat-count">0</strong>
+                    / {{ passenger_count }} seats selected
+                </p>
+
+                <div id="selection-error"
+                     class="alert alert-danger mt-3"
+                     style="display:none;"
+                     role="alert"></div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-between">
+            <button type="button"
+                    class="btn btn-outline-secondary mb-2"
+                    onclick="history.back()">
+                Back to Search Results
+            </button>
+
+            <button type="submit"
+                    class="btn btn-success mb-2"
+                    id="continue-payment"
+                    disabled>
+                Continue to Payment
+            </button>
+        </div>
+
+    </form>
+</div>
+
+<style>
+    .seat-map {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(42px, 56px));
+        gap: 12px;
+        justify-content: center;
+        padding: 20px 10px;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        background: #f8f9fa;
+        min-height: 100px;
+    }
+
+    .seat {
+        height: 44px;
+        border: 1px solid #198754;
+        border-radius: 8px;
+        background: #fff;
+        color: #198754;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .seat.available:hover {
+        background: #d1e7dd;
+    }
+
+    .seat.selected {
+        background: #198754;
+        border-color: #198754;
+        color: #fff;
+    }
+
+    .seat.booked {
+        background: #adb5bd;
+        border-color: #adb5bd;
+        color: #fff;
+        cursor: not-allowed;
+        opacity: 0.8;
+    }
+
+    .seat:disabled {
+        cursor: not-allowed;
+    }
+
+    .seat-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        justify-content: center;
+        font-size: 14px;
+    }
+
+    .legend-box {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        margin-right: 5px;
+        vertical-align: -2px;
+        border: 1px solid #adb5bd;
+        border-radius: 3px;
+    }
+
+    .legend-box.available {
+        background: #fff;
+        border-color: #198754;
+    }
+
+    .legend-box.selected {
+        background: #198754;
+        border-color: #198754;
+    }
+
+    .legend-box.booked {
+        background: #adb5bd;
+        border-color: #adb5bd;
+    }
+
+    .bus-front {
+        max-width: 280px;
+        margin-left: auto;
+        margin-right: auto;
+        padding: 10px;
+        border-bottom: 2px dashed #adb5bd;
+    }
+
+    @media (max-width: 420px) {
+        .seat-map {
+            grid-template-columns: repeat(4, minmax(36px, 48px));
+            gap: 8px;
+        }
+
+        .seat {
+            height: 40px;
+        }
+    }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const passengerCount = Number(
+        document.querySelector(
+            'input[name="passenger_count"]'
+        ).value
+    );
+
+    const bookedSeatsUrl = "{% url 'buses:booked_seats' %}";
+
+    const legs = [
+        {
+            key: "first",
+            scheduleId: "{{ first_schedule.id }}",
+            journeyDate: "{{ first_journey_date|date:'Y-m-d' }}",
+            sourceStopId: "{{ first_source.id }}",
+            destinationStopId: "{{ first_destination.id }}",
+            mapId: "first-seat-map",
+            displayId: "first-selected-display",
+            countId: "first-seat-count",
+            errorId: "first-seat-error",
+            hiddenId: "first-seat-numbers",
+            selected: new Set(),
+            booked: new Set(),
+            capacity: 0,
+            loaded: false
+        },
+        {
+            key: "second",
+            scheduleId: "{{ second_schedule.id }}",
+            journeyDate: "{{ second_journey_date|date:'Y-m-d' }}",
+            sourceStopId: "{{ second_source.id }}",
+            destinationStopId: "{{ second_destination.id }}",
+            mapId: "second-seat-map",
+            displayId: "second-selected-display",
+            countId: "second-seat-count",
+            errorId: "second-seat-error",
+            hiddenId: "second-seat-numbers",
+            selected: new Set(),
+            booked: new Set(),
+            capacity: 0,
+            loaded: false
+        }
+    ];
+
+    const submitButton = document.getElementById(
+        "continue-payment"
+    );
+
+    const selectionError = document.getElementById(
+        "selection-error"
+    );
+
+    function showLegError(leg, message) {
+        document.getElementById(leg.errorId).textContent =
+            message;
+    }
+
+    function renderSeats(leg) {
+        const map = document.getElementById(leg.mapId);
+        map.replaceChildren();
+
+        for (let seatNumber = 1;
+             seatNumber <= leg.capacity;
+             seatNumber++) {
+
+            const seat = document.createElement("button");
+
+            seat.type = "button";
+            seat.className = "seat";
+            seat.textContent = seatNumber;
+            seat.setAttribute(
+                "aria-label",
+                "Seat " + seatNumber
+            );
+
+            if (leg.booked.has(seatNumber)) {
+                seat.classList.add("booked");
+                seat.disabled = true;
+                seat.title = "Already booked";
+            } else {
+                seat.classList.add("available");
+
+                if (leg.selected.has(seatNumber)) {
+                    seat.classList.remove("available");
+                    seat.classList.add("selected");
+                    seat.setAttribute(
+                        "aria-pressed",
+                        "true"
+                    );
+                } else {
+                    seat.setAttribute(
+                        "aria-pressed",
+                        "false"
+                    );
+                }
+
+                seat.addEventListener("click", function () {
+                    if (leg.selected.has(seatNumber)) {
+                        leg.selected.delete(seatNumber);
+                    } else {
+                        if (
+                            leg.selected.size >= passengerCount
+                        ) {
+                            showLegError(
+                                leg,
+                                "You can select only " +
+                                passengerCount +
+                                " seats for this bus."
+                            );
+                            return;
+                        }
+
+                        leg.selected.add(seatNumber);
+                    }
+
+                    showLegError(leg, "");
+                    renderSeats(leg);
+                    updateSummary();
+                });
+            }
+
+            map.appendChild(seat);
+        }
+    }
+
+    function updateSummary() {
+        legs.forEach(function (leg) {
+            const selected = Array.from(leg.selected)
+                .sort(function (a, b) { return a - b; });
+
+            document.getElementById(leg.displayId).textContent =
+                selected.length
+                    ? selected.join(", ")
+                    : "None";
+
+            document.getElementById(leg.countId).textContent =
+                selected.length;
+
+            document.getElementById(leg.hiddenId).value =
+                JSON.stringify(selected);
+        });
+
+        const bothLoaded = legs.every(function (leg) {
+            return leg.loaded;
+        });
+
+        const bothComplete = legs.every(function (leg) {
+            return leg.selected.size === passengerCount;
+        });
+
+        submitButton.disabled = !bothLoaded || !bothComplete;
+
+        if (bothLoaded && !bothComplete) {
+            selectionError.textContent =
+                "Select exactly " + passengerCount +
+                " seat(s) on each bus to continue.";
+            selectionError.style.display = "block";
+        } else {
+            selectionError.textContent = "";
+            selectionError.style.display = "none";
+        }
+    }
+
+    async function loadSeats(leg) {
+        const map = document.getElementById(leg.mapId);
+
+        const params = new URLSearchParams({
+            schedule_id: leg.scheduleId,
+            journey_date: leg.journeyDate,
+            source_stop_id: leg.sourceStopId,
+            destination_stop_id: leg.destinationStopId
+        });
+
+        try {
+            const response = await fetch(
+                bookedSeatsUrl + "?" + params.toString(),
+                {
+                    method: "GET",
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    credentials: "same-origin"
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error ||
+                    "Could not load seat availability."
+                );
+            }
+
+            const capacity = Number(data.capacity);
+
+            if (
+                !Number.isInteger(capacity) ||
+                capacity < 1 ||
+                !Array.isArray(data.booked)
+            ) {
+                throw new Error(
+                    "The server returned invalid seat information."
+                );
+            }
+
+            leg.capacity = capacity;
+
+            leg.booked = new Set(
+                data.booked
+                    .map(Number)
+                    .filter(function (number) {
+                        return Number.isInteger(number) &&
+                            number >= 1 &&
+                            number <= capacity;
+                    })
+            );
+
+            leg.loaded = true;
+
+            if (capacity - leg.booked.size < passengerCount) {
+                showLegError(
+                    leg,
+                    "There may not be enough available seats. " +
+                    "Please choose another journey."
+                );
+            }
+
+            renderSeats(leg);
+
+        } catch (error) {
+            map.replaceChildren();
+
+            const message = document.createElement("p");
+            message.className = "text-danger";
+            message.textContent =
+                error.message ||
+                "Could not load seats. Please refresh and try again.";
+
+            map.appendChild(message);
+            showLegError(leg, message.textContent);
+        }
+
+        updateSummary();
+    }
+
+    document.getElementById("transfer-seat-form")
+        .addEventListener("submit", function (event) {
+            const bothComplete = legs.every(function (leg) {
+                return leg.loaded &&
+                    leg.selected.size === passengerCount;
+            });
+
+            if (!bothComplete) {
+                event.preventDefault();
+
+                selectionError.textContent =
+                    "Please select exactly " + passengerCount +
+                    " available seat(s) on each bus.";
+                selectionError.style.display = "block";
+            }
+        });
+
+    updateSummary();
+
+    legs.forEach(loadSeats);
+});
+</script>
+{% endblock %}

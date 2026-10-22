@@ -1390,11 +1390,9 @@
                             </p>
 
                             {% if journey.total_fare is not None %}
-                                <form method="post"
-                                      action="{% url 'buses:transfer_booking_checkout' %}"
+                                <form method="get"
+                                      action="{% url 'buses:transfer_seat_selection' %}"
                                       class="mt-3">
-
-                                    {% csrf_token %}
 
                                     <input type="hidden"
                                            name="first_schedule_id"

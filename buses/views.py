@@ -14,6 +14,7 @@ from decimal import Decimal
 import uuid
 from datetime import datetime, timedelta
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.core.exceptions import ValidationError
 from .models import Bus, BusLocation, BusStopVisit, Notification, Ticket, Payment, TransferBooking
 from routes.utils import calculate_route_fare, _scheduled_time, _segment_duration
@@ -2940,7 +2941,6 @@ def book_ticket(request):
 
     return render(request, 'buses/book_ticket.html', {'form': form})
 
-from django.utils.dateparse import parse_date
 import logging
 logger = logging.getLogger(__name__)
 
@@ -3047,50 +3047,41 @@ def get_booked_seats(request):
 
     capacity = schedule.bus.capacity
 
+
     try:
-        tickets = list(
-            Ticket.objects.filter(
-                schedule=schedule,
-                journey_date=journey_date,
-            )
-            .exclude(status="CANCELLED")
-            .select_related("source_stop", "destination_stop")
-            .order_by("id")
-        )
-
-        overlapping_tickets = [
-            ticket
-            for ticket in tickets
-            if ticket_overlaps_segment(
-                ticket,
-                source_stop,
-                destination_stop,
-            )
-        ]
-
         booked = set()
-        legacy_tickets = []
 
-        for ticket in overlapping_tickets:
-            raw_seats = ticket.seat_numbers
+        # -------------------------------------------------
+        # Helper: add valid seat numbers to the booked set
+        # -------------------------------------------------
+        def add_recorded_seats(raw_seats):
+            if not isinstance(raw_seats, list):
+                return False
 
-            if isinstance(raw_seats, list) and raw_seats:
-                for value in raw_seats:
-                    try:
-                        seat_number = int(value)
-                    except (TypeError, ValueError):
-                        continue
+            valid_seats = []
 
-                    if 1 <= seat_number <= capacity:
-                        booked.add(seat_number)
-            else:
-                legacy_tickets.append(ticket)
+            for value in raw_seats:
+                try:
+                    seat_number = int(value)
+                except (TypeError, ValueError):
+                    continue
 
-        # Legacy tickets have no recorded seat numbers.
-        # Allocate placeholder seats deterministically.
-        for ticket in legacy_tickets:
+                if 1 <= seat_number <= capacity:
+                    valid_seats.append(seat_number)
+
+            if not valid_seats:
+                return False
+
+            booked.update(valid_seats)
+            return True
+
+        # -------------------------------------------------
+        # Helper: allocate placeholder seats for legacy
+        # records that do not contain recorded seat numbers
+        # -------------------------------------------------
+        def reserve_placeholder_seats(passenger_count):
             try:
-                count = max(0, int(ticket.passenger_count))
+                count = max(0, int(passenger_count))
             except (TypeError, ValueError):
                 count = 0
 
@@ -3101,6 +3092,113 @@ def get_booked_seats(request):
                 if seat_number not in booked:
                     booked.add(seat_number)
                     count -= 1
+
+        # -------------------------------------------------
+        # 1. Existing tickets on this schedule and date
+        # -------------------------------------------------
+        tickets = list(
+            Ticket.objects.filter(
+                schedule=schedule,
+                journey_date=journey_date,
+            )
+            .exclude(status="CANCELLED")
+            .select_related(
+                "source_stop",
+                "destination_stop",
+            )
+            .order_by("id")
+        )
+
+        for ticket in tickets:
+            if not ticket_overlaps_segment(
+                ticket,
+                source_stop,
+                destination_stop,
+            ):
+                continue
+
+            has_recorded_seats = add_recorded_seats(
+                ticket.seat_numbers
+            )
+
+            if not has_recorded_seats:
+                reserve_placeholder_seats(
+                    ticket.passenger_count
+                )
+
+        # -------------------------------------------------
+        # 2. Active direct-payment reservations
+        # -------------------------------------------------
+        direct_payments = Payment.objects.filter(
+            schedule=schedule,
+            journey_date=journey_date,
+            status__in=["CREATED", "FAILED"],
+            ticket__isnull=True,
+            transfer_booking__isnull=True,
+            source_stop__stop_order__lt=destination_stop.stop_order,
+            destination_stop__stop_order__gt=source_stop.stop_order,
+        ).select_related(
+            "source_stop",
+            "destination_stop",
+        )
+
+        for payment in direct_payments:
+            has_recorded_seats = add_recorded_seats(
+                getattr(payment, "seat_numbers", [])
+            )
+
+            if not has_recorded_seats:
+                reserve_placeholder_seats(
+                    payment.passenger_count
+                )
+
+        # -------------------------------------------------
+        # 3. Active transfer reservations: first leg
+        # -------------------------------------------------
+        first_leg_bookings = TransferBooking.objects.filter(
+            first_schedule=schedule,
+            first_journey_date=journey_date,
+            status="CREATED",
+            first_source_stop__stop_order__lt=destination_stop.stop_order,
+            first_destination_stop__stop_order__gt=source_stop.stop_order,
+        ).select_related(
+            "first_source_stop",
+            "first_destination_stop",
+        ).order_by("id")
+
+        for booking in first_leg_bookings:
+            has_recorded_seats = add_recorded_seats(
+                booking.first_seat_numbers
+            )
+
+            if not has_recorded_seats:
+                reserve_placeholder_seats(
+                    booking.passenger_count
+                )
+
+        # -------------------------------------------------
+        # 4. Active transfer reservations: second leg
+        # -------------------------------------------------
+        second_leg_bookings = TransferBooking.objects.filter(
+            second_schedule=schedule,
+            second_journey_date=journey_date,
+            status="CREATED",
+            second_source_stop__stop_order__lt=destination_stop.stop_order,
+            second_destination_stop__stop_order__gt=source_stop.stop_order,
+        ).select_related(
+            "second_source_stop",
+            "second_destination_stop",
+        ).order_by("id")
+
+        for booking in second_leg_bookings:
+            has_recorded_seats = add_recorded_seats(
+                booking.second_seat_numbers
+            )
+
+            if not has_recorded_seats:
+                reserve_placeholder_seats(
+                    booking.passenger_count
+                )
 
         return JsonResponse({
             "booked": sorted(booked),
@@ -3114,7 +3212,12 @@ def get_booked_seats(request):
             journey_date,
         )
         return JsonResponse(
-            {"error": "Could not retrieve seat availability. Please retry."},
+            {
+                "error": (
+                    "Could not retrieve seat availability. "
+                    "Please retry."
+                )
+            },
             status=500,
         )
 
@@ -4888,6 +4991,157 @@ def payment_failure(request):
     )
 
 @login_required
+def transfer_seat_selection(request):
+    if not request.user.groups.filter(
+        name="Passengers"
+    ).exists():
+        messages.error(
+            request,
+            "Only passengers can book tickets."
+        )
+        return redirect("core:home")
+
+    if request.method != "GET":
+        return redirect("core:home")
+
+    first_schedule_id = request.GET.get("first_schedule_id")
+    second_schedule_id = request.GET.get("second_schedule_id")
+    source_stop_id = request.GET.get("source_stop_id")
+    transfer_stop_id = request.GET.get("transfer_stop_id")
+    destination_stop_id = request.GET.get("destination_stop_id")
+    first_date = parse_date(
+        request.GET.get("first_journey_date", "")
+    )
+    second_date = parse_date(
+        request.GET.get("second_journey_date", "")
+    )
+    passenger_count_raw = request.GET.get(
+        "passenger_count", "1"
+    )
+
+    if not all([
+        first_schedule_id,
+        second_schedule_id,
+        source_stop_id,
+        transfer_stop_id,
+        destination_stop_id,
+        first_date,
+        second_date,
+    ]):
+        messages.error(
+            request,
+            "Journey details are incomplete. Please search again."
+        )
+        return redirect("core:home")
+
+    try:
+        passenger_count = int(passenger_count_raw)
+    except (TypeError, ValueError):
+        passenger_count = 0
+
+    if not 1 <= passenger_count <= 10:
+        messages.error(
+            request,
+            "Passenger count must be between 1 and 10."
+        )
+        return redirect("core:home")
+
+    first_schedule = get_object_or_404(
+        BusSchedule.objects.select_related("route", "bus"),
+        pk=first_schedule_id,
+        is_active=True,
+    )
+    second_schedule = get_object_or_404(
+        BusSchedule.objects.select_related("route", "bus"),
+        pk=second_schedule_id,
+        is_active=True,
+    )
+
+    # Resolve physical Stop IDs to RouteStop records on each route.
+    first_source = get_object_or_404(
+        RouteStop.objects.select_related("stop", "route"),
+        stop_id=source_stop_id,
+        route_id=first_schedule.route_id,
+    )
+
+    first_transfer = get_object_or_404(
+        RouteStop.objects.select_related("stop", "route"),
+        stop_id=transfer_stop_id,
+        route_id=first_schedule.route_id,
+    )
+
+    # The same physical transfer stop has a different RouteStop ID
+    # on the second route.
+    second_transfer = get_object_or_404(
+        RouteStop.objects.select_related("stop", "route"),
+        stop_id=first_transfer.stop_id,
+        route_id=second_schedule.route_id,
+    )
+
+    second_destination = get_object_or_404(
+        RouteStop.objects.select_related("stop", "route"),
+        stop_id=destination_stop_id,
+        route_id=second_schedule.route_id,
+    )
+
+    if not all([
+        first_source,
+        first_transfer,
+        second_destination,
+    ]):
+        messages.error(
+            request,
+            "One or more selected stops are invalid. "
+            "Please search for your transfer journey again."
+        )
+        return redirect("core:home")
+
+    # Find the same physical transfer stop on the second route.
+    second_transfer = RouteStop.objects.filter(
+        route_id=second_schedule.route_id,
+        stop_id=first_transfer.stop_id,
+    ).select_related("stop", "route").first()
+
+    if not second_transfer:
+        messages.error(
+            request,
+            "The transfer stop is not available on the second route. "
+            "Please search again."
+        )
+        return redirect("core:home")
+
+    if (
+        first_schedule.bus is None
+        or second_schedule.bus is None
+        or first_schedule.route_id == second_schedule.route_id
+        or first_source.stop_order >= first_transfer.stop_order
+        or second_transfer.stop_order >= second_destination.stop_order
+        or first_date < timezone.localdate()
+        or second_date < timezone.localdate()
+    ):
+        messages.error(
+            request,
+            "This transfer journey is no longer valid. Please search again."
+        )
+        return redirect("core:home")
+
+    return render(
+        request,
+        "buses/transfer_seat_selection.html",
+        {
+            "first_schedule": first_schedule,
+            "second_schedule": second_schedule,
+            "first_source": first_source,
+            "first_destination": first_transfer,
+            "second_source": second_transfer,
+            "second_destination": second_destination,
+            "first_journey_date": first_date,
+            "second_journey_date": second_date,
+            "passenger_count": passenger_count,
+        },
+    )
+
+@login_required
 @require_POST
 def transfer_booking_checkout(request):
     # Only passengers may book.
@@ -4914,7 +5168,15 @@ def transfer_booking_checkout(request):
 
         passenger_count = int(request.POST.get('passenger_count', '1'))
 
-    except (KeyError, ValueError, TypeError):
+        first_seat_numbers = json.loads(
+            request.POST.get('first_seat_numbers', '[]')
+        )
+
+        second_seat_numbers = json.loads(
+            request.POST.get('second_seat_numbers', '[]')
+        )
+
+    except (KeyError, ValueError, TypeError, json.JSONDecodeError):
         messages.error(request, 'Invalid transfer booking details.')
         return redirect('core:home')
 
@@ -4939,6 +5201,37 @@ def transfer_booking_checkout(request):
         BusSchedule.objects.select_related('route', 'bus'),
         pk=second_schedule_id,
     )
+
+    # Validate the selected seats for both legs.
+    if (
+        not isinstance(first_seat_numbers, list)
+        or not isinstance(second_seat_numbers, list)
+        or len(first_seat_numbers) != passenger_count
+        or len(second_seat_numbers) != passenger_count
+    ):
+        messages.error(
+            request,
+            'Please select the required number of seats on both buses.'
+        )
+        return redirect('core:home')
+
+    try:
+        first_seat_numbers = [int(seat) for seat in first_seat_numbers]
+        second_seat_numbers = [int(seat) for seat in second_seat_numbers]
+    except (TypeError, ValueError):
+        messages.error(request, 'Invalid seat selection.')
+        return redirect('core:home')
+
+    if (
+        any(seat < 1 or seat > first_schedule.bus.capacity
+            for seat in first_seat_numbers)
+        or any(seat < 1 or seat > second_schedule.bus.capacity
+                for seat in second_seat_numbers)
+        or len(set(first_seat_numbers)) != passenger_count
+        or len(set(second_seat_numbers)) != passenger_count
+    ):
+        messages.error(request, 'Invalid or duplicate seat numbers.')
+        return redirect('core:home')
 
     # A schedule must be active and have a bus assigned.
     if (
@@ -5230,14 +5523,14 @@ def transfer_booking_checkout(request):
                 first_destination_stop=first_transfer,
                 first_journey_date=first_journey_date,
                 first_fare_per_passenger=first_fare,
-                first_seat_numbers=[],
+                first_seat_numbers=first_seat_numbers,
 
                 second_schedule=second_schedule,
                 second_source_stop=second_transfer,
                 second_destination_stop=second_destination,
                 second_journey_date=second_journey_date,
                 second_fare_per_passenger=second_fare,
-                second_seat_numbers=[],
+                second_seat_numbers=second_seat_numbers,
 
                 passenger_count=passenger_count,
                 total_amount=total_amount,
